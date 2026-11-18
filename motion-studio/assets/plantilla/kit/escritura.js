@@ -116,11 +116,14 @@ function subrayado(x0, y, x1, semilla = 1) {
 function crearEscritura(W, H) {
   const O = document.createElement('canvas'), M = document.createElement('canvas');
   O.width = M.width = W; O.height = M.height = H;
-  const ctxO = O.getContext('2d');
+  // willReadFrequently: lienzos rasterizados por CPU desde el principio. Se repintan en cada seek y, si Chrome los pasa
+  // de GPU a CPU a mitad del render, los bordes suavizados cambian según el orden de los t (validado en Hanói v2 junto
+  // con los billboards y la página; ver la lección 13 del leccionero).
+  const ctxO = O.getContext('2d', { willReadFrequently: true }), ctxM = M.getContext('2d', { willReadFrequently: true });
   function revelar(ctx, k, caja, dibujar, op = {}) {
     const { suave = 18, letras = 4 } = op, kk = clamp(k), borde = caja.x + caja.ancho * kk;
     ctxO.reset(); dibujar(ctxO);
-    const m = M.getContext('2d'); m.reset();
+    const m = ctxM; m.reset();
     m.drawImage(O, 0, 0);
     // una sola máscara: opaca hasta el borde − suave y transparente desde el borde (destination-in recorta todo lo demás)
     m.globalCompositeOperation = 'destination-in';

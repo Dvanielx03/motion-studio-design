@@ -2,6 +2,80 @@
 
 Las entradas describen cambios del repositorio, no versiones publicadas ni garantías de calidad audiovisual.
 
+## Sin versión publicada — 2026-11-18
+
+### Nivel de referencia del nicho: de un análisis comparativo a herramientas de la skill
+
+- **Necesidad:** el piloto 2.5D «Te vendieron la Torre Eiffel» (completo v2) pasó todos los controles técnicos, pero una crítica independiente le dio 6,0. Se comparó con la referencia de estilo «The Ancient Jar That Warned an Empire» (Ricks Clips; 35 M de vistas según vidIQ el 18 nov). Lo medido (FFmpeg `signalstats`, `ebur128`, faster-whisper) y lo observado se separaron en un análisis por secuencias y marcas de tiempo, fuera de este repositorio: `biblioteca/referencias/ancient-jar/comparacion/` del proyecto de contenidos.
+- **`scripts/comparar.py` (nuevo):** mide dos videos con las mismas medidas y da la diferencia y el estado frente a la referencia: movimiento, cortes duros, negros, luces, saturación media y de picos, sonoridad, golpes por segundo y, con las palabras de la voz, el fondo bajo la voz. **Justificación:** en esta skill una mejora se demuestra midiendo (lección 24), y faltaba la herramienta que lo hiciera contra una referencia. Probado con los dos videos: marca FUERA el movimiento (9,6 frente a 13,7), los cortes duros (13,7/min frente a 3,7), los negros (47 frente a 58), las luces (181 frente a 163), los picos de saturación (42,5 frente a 33,9) y el fondo (11,9 frente a 9,2 dB).
+- **`kit/escena3d.js`:**
+  - `camaraContinua`: Hermite con tangentes en el tiempo; `camaraClaves` se paraba en cada clave intermedia (lección 29). Probada en el completo de la Torre.
+  - `gradoFinal`: gradación determinista de negros, luces y picos de saturación.
+  - `crearCielo`: degradado, sol, halo y haces.
+  - **Justificación:** son las tres brechas medidas de movimiento, color y atmósfera. Las funciones existentes no cambian.
+- **`kit/cuento.js` (nuevo):** personajes de cuento con vestuario, 13 caras, 13 poses con transición, sombreros y símbolos de expresión. **Justificación:** la crítica marcó la actuación pobre (5/10), y la referencia actúa con el cuerpo y con símbolos (lágrimas de risa, sudor, «Z»). Antes cada proyecto dibujaba sus personajes desde cero. Diseño propio, sin copiar identidades.
+- **`kit/subtitulos.js` (nuevo):** el módulo de subtítulos del piloto, generalizado con los presets `'nicho'` (1–2 palabras, minúsculas, 3,6 % del alto, medido en la referencia) y `'grande'` (Hanói y Torre), en español o inglés. Cada golpe termina en el corte siguiente.
+- **`qc_escena.mjs`:** `imprescindible: true` convierte en FALLA el objeto de la acción fuera de cuadro. **Justificación:** el pago del completo v1 de la Torre no se veía y el QC solo avisó (lección 28). Los protegidos sin esa marca se comportan igual que antes.
+- **Guías:**
+  - `produccion-25d.md`: sección «Nivel de referencia del nicho», con los rangos medidos y qué cambia en cada etapa, y la comparación medida como paso 5 del QC;
+  - `25d.md`: tabla del kit;
+  - `leccionero.md`: lecciones 27–31;
+  - `critica.md`: brecha con la referencia en la auditoría numérica;
+  - `SKILL.md`: una línea en el modo 2.5D.
+- **Narración (piloto de EE. UU., 18 nov):**
+  - en `produccion-25d.md` §8, el método que el usuario aprobó tras rechazar siete voces que solo leían: voz de biblioteca de *storytelling*, v3 creativo, etiquetas de actuación por frase, 2 tomas por línea y escucha mezclada;
+  - lecciones 32 (narración) y 33: la regla `imprescindible` detectó la grieta fuera de cuadro en la muestra.
+- **Sin cambiar:** las autorizaciones (guion, voz, muestra, completo, publicación), la regla del usuario sobre el nivel de la música (el valor medido se le propone; no se aplica) y el comportamiento de todas las funciones existentes.
+
+## Sin versión publicada — 2026-11-17
+
+### Producción 2.5D en el navegador: del piloto de Hanói a un flujo de la skill
+
+- **Necesidad:** el piloto «La recompensa que llenó Hanói de ratas» produjo Shorts 2.5D con escenarios Three.js y personajes 2D, pero el método vivía dentro del proyecto. La v1 tuvo una crítica independiente de 6,0 y 6,9, iba a 2,3 palabras/s, tenía 32 cortes duros en 81 s y subtítulos sobre los personajes; en la muestra de la v2, un salto de un dibujo (f14 → f15) no se vio en las hojas.
+- **Investigación** (`docs/analysis/2026-11-17-*.md`):
+  - **Ricks Clips:** 31 Shorts 2.5D con mediana de 8,9 M de vistas. Las métricas de forma (palabras/s, cambios de escena, sonoridad, duración) son casi iguales entre los más vistos y el control; lo que los separa en lo observable es la premisa y el gancho. Hablan a ~3,7 palabras/s y casi no tienen cortes duros (0–2 por video): enlazan con cámara y fundidos. Lo de retención son hipótesis: no hay Analytics de ese canal.
+  - **Tutorial de Blender / make-short:** no es 2.5D de recortes, sino 3D real con sombreado de dibujo animado. Medido en la RTX 3050: ~1,16 s por fotograma nativo frente a ~0,4 s de la ruta del navegador en paralelo. Se adoptan rampa de color, bloom ligero, bruma y luz por acto; no se adoptan Kuwahara ni la tinta Sobel (costo o determinismo).
+  - **Auditoría de make-short** (commit `5a17d35`, MIT): su validador de planos no detiene el proceso y su ejemplo no lo cumple; `qa-pops.mjs` aporta una revisión que no teníamos; de sus lecciones se toman el crítico con las sospechas del constructor, la auditoría numérica al inicio y el archivo de cada ronda.
+- **Motor:** `kit/escena3d.js` y la capa `assets/plantilla-25d/` (`nuevo.py --25d`): supermuestreo 2× sin MSAA, doble render y precalentamiento por determinismo; bandas con contorno, rampa de color y brillo; billboards con sombra hacia el sol; manadas instanciadas; cámara 3D por claves; cajas en pantalla para el QC; exportación del decorado a `.glb` con anclas y apertura en Blender (`exportar_glb.mjs`, `scripts/abrir_en_blender.py`). `preparar.py` instala y comprueba Three.js 0.170.0 en las herramientas compartidas. Medido con el ejemplo: `--determinismo` idéntico en 5 instantes y 6 s de 1080×1920 a 30 fps en ~49 s.
+- **Render:** `--vista` (animatic del video entero con NVENC; 66,6 s de video en 58 s), `--prueba` en paralelo (11 s por segundo de video, antes 40 con un navegador) y anotación de cada vista, prueba, borrador y final en `review/bitacora.jsonl` y en la bitácora global, con `scripts/bitacora.py` para los tiempos por etapa.
+- **Caché por plano:** `motion.config.json` → `dependencias` y `window.__info.planos`; editar un escenario solo rehace los segmentos de 5 s donde aparece y lo no declarado sigue siendo común.
+- **QC automático:** `pops.py` (saltos no planificados; idea de `qa-pops.mjs`, implementación propia), `qc_escena.mjs` (zona segura, texto sobre personajes, foco fuera de cuadro y lectura, sin renderizar) y `revisar_guion.py` (guion con la voz medida).
+- **Crítica y pipeline:** `references/critica.md` (crítico que no construyó los planos, auditoría numérica, rúbrica de 7 criterios, máximo 2 rondas), `references/produccion-25d.md` (10 etapas, qué va en serie y qué en paralelo) y `references/leccionero.md` (lecciones comprobadas, con la regla o herramienta que evita cada una).
+
+### Revisión adversarial en tres rondas
+
+- **Ronda 1:** agentes revisores confirmaron 40 defectos en herramientas que ya habían pasado sus pruebas, y se corrigieron por grupos de archivos. Entre ellos:
+  - la caché dejaba fuera todo archivo `_*` (una `escena/_paleta.js` editada reutilizaba la paleta vieja); ahora solo los `_*.mjs` / `_*.cjs` de la raíz;
+  - un id de `dependencias` con otra mayúscula nunca invalidaba nada; ahora avisa y sus archivos cuentan como comunes;
+  - `-shortest` perdía fotogramas con una mezcla más corta (348 → 288); `unir()` rellena o recorta el audio y cuenta los fotogramas;
+  - `motion.config.json` invalidaba la caché por claves de herramientas (`workers`, `vista`, `qc`…); ahora entra como configuración, con la GPU efectiva;
+  - la caché ignoraba la transición de salida de cada plano (contrato `[id, inicio, fin, salidaDur]`);
+  - `pops.py` cargaba el video entero en memoria (pico de 444,2 MiB frente a 2,3 MiB ahora en un 1080×1920 de 10 s), no veía saltos de 2–3 fotogramas ni los de junto a un corte, y no resolvía los impactos anclados a palabra ni los fps de la vista;
+  - la rampa de color no teñía (solo se leía `.r`), el umbral de `brillo()` no cortaba en su valor, el contorno dependía de la escala, `mirarCamara` fallaba con mallas desplazadas, la sombra real de las manadas era el atlas entero y `exportarGLB` exportaba manadas inválidas;
+  - un 404 de three dejaba a `render.mjs`, `qc_escena.mjs` y `exportar_glb.mjs` esperando 120 s; ahora fallan al momento (0,93 s en la prueba con `qc_escena.mjs`);
+  - `exportar_glb --blender` pisaba un `.blend` retocado; ahora necesita `--forzar`;
+  - `bitacora.py` contaba dos veces el render y separaba un mismo video en dos proyectos; `revisar_guion.py` no decía qué archivos necesitaba y rompía con tiempos nulos.
+- **Ronda 2:** limpieza de parciales en `--prueba` y `--vista`; el navegador se cierra si falla la carga de una página; dependencias con `/` inicial normalizadas y con otras mayúsculas rechazadas con la ruta correcta; una sola regla de duración en `transiciones.js` (`tr.duracion`: sin `dur`, 0,4 s también en `montaje()`); `auditar.mjs` audita todos los `_*` salvo los diagnósticos de la raíz; `motor.dibujar` ya no deja estado en la cámara; `rectPantalla` mide con la proporción del cuadro y devuelve `fuera`, que `qc_escena.mjs` cuenta; parche contra el acné de sombra (sustituido en la ronda 3); la plantilla 2.5D añade `actualizar(t, camara)` y `reposo` por entorno y exporta en reposo; `pops.py` separa los transitorios recurrentes y los avisos, y admite `--zona-ignorada`.
+- **Ronda 3:**
+  - **Acné de sombra, arreglo coherente:** en una malla que recibe sombras, toda cara de espaldas a una luz con sombra queda en sombra (factor `1 − shadow.intensity`, sin consultar el mapa); las que miran a la luz usan el mapa normal. Desaparecen el acné y la luz invertida del parche de la ronda 2, que aclaraba esas caras aunque estuvieran dentro de la sombra de otro volumen.
+  - `rectPantalla` ya no copia la cámara entera (`Object3D.copy`): solo sus parámetros de proyección, sin tocar `userData` ni la cámara real.
+  - `plantilla-25d/composicion.js` publica `salidaDur` con `tr.duracion(p.salida)`, la regla de `tr.montaje` (con un kit antiguo sin `tr.duracion`, `salida.dur` o 0).
+  - `pops.py`: la recurrencia es local (al menos otras 2 repeticiones con la misma firma a ±5 s y en el mismo plano; `--ventana-recurrencia`), un transitorio de 1 fotograma nunca es recurrente y desaparece la clase AVISO del plano corto: lo que no es recurrente es SALTO, con su motivo. En `review/pops.json`, `avisos` son ahora los cortes duros permitidos.
+  - `render.mjs`: si la salida está abierta en un reproductor, el resultado se conserva como `<salida>.conservado-<pid>.mp4`, que la poda no borra; `--prueba` también cuenta los fotogramas; la clave `skill` de `motion.config.json` ya no invalida la caché.
+  - `cache.mjs`: una dependencia vacía o que nombra la raíz, una fuera del proyecto y una carpeta con `/` final que no existe dan error con el plano y la ruta.
+  - `qc_escena.mjs` sale con código 2 y dice qué falta si `motion.config.json` no trae `video.ancho`, `alto` o `duracion`, y cuenta el aviso de planos mal formados; `revisar_guion.py` trata cualquier forma inesperada de `voz.palabras.json` (null, un número, segmentos sin palabras) como «sin palabras», sin trazas; `preparar.py` fija con `--save-exact` un three 0.170.0 que `package.json` pedía con rango (`^0.170.0`), sin contarlo como falta.
+- **Cambios que se ven en la imagen:** el brillo tiene menos halo con el umbral por defecto. La rampa de color tiñe de verdad, pero en las mallas que reciben sombras (todo `caja()` y el suelo de la plantilla) solo se ven sus paradas claras: la sombra la pone el relleno de cielo y las violetas de `RAMPAS.calida` ya no aparecen en el decorado. Las caras de espaldas al sol pasan de una mezcla rayada a un tono liso, el de la sombra arrojada: el muro del ejemplo con la rampa cálida, a t = 4,5, mide (61,64,51) con acné, (90,85,70) con el parche de la ronda 2 y (46,54,42) ahora. Un `tipo` de transición mal escrito, que antes hacía un corte en silencio, ahora lanza «transición desconocida».
+- **Validación:** pruebas sintéticas por grupo (caché 26/26, render 25/25 y configuración 14/14 en la ronda 1; 21 videos sintéticos de FFmpeg para `pops.py`), FFmpeg real para la unión con mezclas más cortas y más largas, Chrome con la RTX 3050 para el motor (sombra de manada 0,92 frente a 0,22; esfera en un rectángulo 400×200 con proporción 1,0 frente a 2,0) y `--determinismo` idéntico en 3 instantes de la prueba 2.5D tras la ronda 1. En la ronda 3: render en Chrome de la prueba 2.5D con el kit del repositorio (muro de espaldas al sol liso, esfera dentro de la sombra de un edificio oscura entera, sombras de contacto sin cambios); `pops.py` contrastado con la versión de la ronda 2 sobre 75 videos sintéticos de FFmpeg y la muestra y el completo de Hanói v2; `cache.mjs` en un proyecto de prueba (`/`, carpeta inexistente, `../otra/`, cambio de `salida.carpeta` y de `dependencias`). Documentación alineada con el código: `SKILL.md`, `kit.md` (regla única de duración de las transiciones), `requisitos.md`, `25d.md`, `produccion-25d.md`, `rubricas.md`, `critica.md` y `leccionero.md` (lecciones 24–27 nuevas y 13 matizada).
+- **Límites:**
+  - Tras el parche de sombra de la ronda 3 no se corrió `--determinismo`, ni se cargaron en Chrome la plantilla 2.5D ni la página de Hanói tras el cambio de `salidaDur` (se probó con el `transiciones.js` real de cada kit).
+  - **Decisión pendiente:** con el arreglo del acné, las paradas violetas de `RAMPAS.calida` no se ven en el decorado. Se recuperan en una malla con `receiveShadow = false` (pierde la sombra arrojada); teñir de violeta la sombra arrojada exigiría otro cambio en el shader, que no está hecho.
+  - `pops.py`: un salto que cae entre el inicio y la vuelta de un transitorio recurrente queda cubierto y sale como recurrente con código 0, aunque sea de otro bloque, dure 1 fotograma o no vuelva. Sin corregir.
+  - `pops.py`: un parpadeo que no reúne 2 repeticiones a ±5 s en su plano (el único, los de planos de menos de ~4 s, el primero y el último de una serie espaciada) y los parpadeos de la vista a 15 fps salen como SALTO: hay que mirarlos y pasarlos con `--permitir`. Al revés, un dibujo equivocado con la firma de un parpadeo de su plano sale como recurrente (sin `review/planos.json`, también entre escenas).
+  - Cambiar `salida.carpeta` cuando la anterior no se llama `exportaciones` rehace todos los segmentos: esa carpeta pasa a contar en la huella.
+  - Las transiciones no se han revisado en Chrome tras la regla única de duración: se comprobaron con dobles de canvas.
+  - La primera exportación con la plantilla nueva rehace todos los segmentos una vez. Los proyectos ya creados (Hanói v2, Torre Eiffel) llevan copias propias de `render.mjs`, `cache.mjs`, `auditar.mjs`, `pops.py` y del kit, y no reciben los arreglos hasta que se copien; el kit de Hanói v2 sigue sin el parche de sombra y sin `tr.duracion`.
+  - Las conclusiones sobre retención son hipótesis; ningún cambio acredita calidad artística.
+
 ## Sin versión publicada — 2026-11-06
 
 ### Catálogo de capacidades y estado de validación

@@ -22,7 +22,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--proyecto', type=Path, required=True)
     ap.add_argument('--generador', type=Path, required=True)
-    ap.add_argument('--blender', type=Path, required=True)
+    ap.add_argument('--blender', type=Path, default=None,
+                    help='blender.exe; por defecto BLENDER, el PATH o la carpeta estándar (nuevo.buscar_blender)')
     ap.add_argument('--gpu', required=True, help='texto exigido en el nombre real del dispositivo, p. ej. NVIDIA')
     ap.add_argument('--fps', type=float, default=12, help='cadencia del recurso; no cambia fps de entrega')
     ap.add_argument('--inicio', type=int, default=0)
@@ -32,6 +33,12 @@ def main():
     ap.add_argument('--forzar', action='store_true', help='regenerar los dibujos seleccionados aunque estén válidos')
     ap.add_argument('--comprobar', action='store_true', help='repite primero/medio/último en orden inverso y compara píxeles')
     args = ap.parse_args()
+    if args.blender is None:
+        from nuevo import buscar_blender
+        encontrado = buscar_blender()
+        if not encontrado:
+            ap.error('no se encontró Blender: instálalo (5.2 LTS probado) o pasa --blender RUTA')
+        args.blender = Path(encontrado)
     try:
         if not math.isfinite(args.fps) or args.fps <= 0 or args.inicio < 0 or args.fin <= args.inicio:
             raise ValueError('FPS o rango inválidos')

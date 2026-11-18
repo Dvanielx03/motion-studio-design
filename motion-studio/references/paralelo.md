@@ -42,6 +42,13 @@ No cambies tiempos/identidad compartidos, no sobrescribas archivos ajenos ni del
 
 El coordinador mantiene una lista breve de tareas pendientes, en curso, bloqueadas y verificadas, usando las herramientas nativas disponibles o el contrato. Guarda identificadores de los subagentes para recuperar sus resultados y enviar correcciones al mismo propietario. Evita duplicar contextos y registros completos: cada devolución resume entrega, cambios de interfaz, comprobaciones y pendientes, con rutas y tiempos concretos.
 
+## Reglas aprendidas (make-short y Hanói)
+- **La transición pertenece al plano siguiente:** su dueño la escribe y la prueba.
+- **Las anclas son inmutables** una vez repartidas (posiciones, escalas, tiempos de palabra); cambiarlas es una decisión del coordinador que se comunica a todos los consumidores.
+- **Temporales por proceso:** cada agente o proceso de render usa su carpeta de trabajo; nunca dos escriben la misma salida.
+- **Un cambio global obliga a re-renderizar los planos ya aprobados** y compararlos con la versión anterior; la caché por plano solo reutiliza segmentos cuyas dependencias no cambiaron.
+- Al pedir crítica, el coordinador entrega al crítico sus propias sospechas (`critica.md`).
+
 ## Render mientras avanza otro trabajo
 
 La escritura de código, preparación de recursos y análisis pueden avanzar en paralelo. La cola de GPU pertenece al coordinador: por defecto, un trabajo pesado activo. Los workers internos del renderizador ya consumen recursos; no multipliques procesos de Blender o navegadores porque haya más subagentes. Ajusta la concurrencia solo con medición y dentro de la GPU/calidad autorizadas.

@@ -12,8 +12,9 @@
 
 Qué prepara:
 - En una carpeta compartida por todos los videos (MOTION_STUDIO_HOME, por defecto ~/.motion-studio):
-  Playwright, Chromium y una colección de fuentes (@fontsource). render.mjs la usa si el proyecto no trae las suyas,
-  y sirve sus fuentes en /node_modules/... Así no se instala nada por proyecto.
+  Playwright, Chromium, Three.js 0.170.0 (versión fija: la capa 2.5D de `nuevo.py --25d` lo importa por import map
+  desde /node_modules/three) y una colección de fuentes (@fontsource). render.mjs la usa si el proyecto no trae las
+  suyas y la sirve en /node_modules/... Así no se instala nada por proyecto.
 - En Python: numpy (audio/musica.py, ritmo.py) y Pillow (sheet.py), con `pip install --user`.
 - Comprueba Node.js >= 18, FFmpeg con libx264 y el filtro ebur128 (sonoridad), y que Chrome sin interfaz obtiene la
   GPU (WebGL) en lugar de SwiftShader.
@@ -21,7 +22,8 @@ Node.js y FFmpeg son programas del sistema: sin --sistema solo se indica el coma
 Modo edición de video real (references/edicion.md): el perfil decide el codificador de revisión, el modelo de Whisper
 y el paralelismo según el hardware; nada se impone. Niveles: "núcleo" (solo FFmpeg), "completo" (+ faster-whisper),
 "avanzado" (+ PyTorch, opcional y aún sin uso).
-Deja el resultado en MOTION_STUDIO_HOME/estado.json.
+Deja el resultado en MOTION_STUDIO_HOME/estado.json, fundido con el anterior: la comprobación normal no borra el
+«perfil» de --perfil.
 """
 import argparse
 import datetime
@@ -39,6 +41,12 @@ HOME = Path(os.environ.get("MOTION_STUDIO_HOME", Path.home() / ".motion-studio")
 # Fuentes elegidas para cubrir estilos distintos: titulares, interfaz, editorial, rotulador, píxel y monoespaciada.
 FUENTES = ["inter", "space-grotesk", "montserrat", "bebas-neue", "anton", "archivo-black", "dm-serif-display",
            "playfair-display", "permanent-marker", "press-start-2p", "silkscreen", "jetbrains-mono"]
+# Paquetes npm compartidos: (carpeta en node_modules, especificación para npm install). Si la especificación fija
+# una versión, otra versión instalada cuenta como falta; si está la buena pero package.json la pide con rango
+# («^0.170.0»), no es falta, pero la preparación normal la reinstala con --save-exact.
+# three: plantilla-25d y kit/escena3d.js lo piden por import map.
+THREE = "0.170.0"
+NPM = [("playwright", "playwright"), ("three", f"three@{THREE}"), *[(f"@fontsource/{f}",) * 2 for f in FUENTES]]
 PIP = ["numpy", "pillow"]
 SISTEMA = {
     "Windows": {"node": ["winget", "install", "--id", "OpenJS.NodeJS.LTS", "-e"], "ffmpeg": ["winget", "install", "--id", "Gyan.FFmpeg", "-e"]},
@@ -116,22 +124,79 @@ def ffmpeg(comprobar, sistema):
             informe("codificación H.264", r is not None and r.returncode == 0 and p.exists(), "" if p.exists() else (r.stderr[-200:] if r else ""))
 
 
+def version_npm(nm, nombre):
+    try:
+        return json.loads((nm / nombre / "package.json").read_text(encoding="utf-8")).get("version", "")
+    except (OSError, ValueError):
+        return ""
+
+
+def version_fija(spec):
+    """«three@0.170.0» -> «0.170.0»; «playwright» o «@fontsource/inter» (sin versión) -> «»."""
+    return spec.rpartition("@")[2] if spec.rfind("@") > 0 else ""
+
+
+def falta_npm(nm, nombre, spec):
+    """Falta si no está en node_modules o si la especificación fija una versión (three@0.170.0) y hay otra."""
+    fija = version_fija(spec)
+    return not (nm / nombre).exists() or bool(fija) and version_npm(nm, nombre) != fija
+
+
+def pedido_en_package(nombre):
+    """Lo que HOME/package.json pide para `nombre` en dependencies («^0.170.0», «0.170.0»), o «» si no lo pide."""
+    try:
+        deps = json.loads((HOME / "package.json").read_text(encoding="utf-8-sig")).get("dependencies")
+        v = deps.get(nombre, "") if isinstance(deps, dict) else ""
+        return v if isinstance(v, str) else ""
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+def sin_fijar(nombre, spec):
+    """La versión fija está instalada, pero package.json la pide con rango («^0.170.0», de una instalación anterior sin
+    --save-exact) o no la pide: un `npm install` posterior podría moverla. Se reinstala con --save-exact."""
+    fija = version_fija(spec)
+    return bool(fija) and pedido_en_package(nombre) != fija
+
+
 def npm_compartido(comprobar):
     HOME.mkdir(parents=True, exist_ok=True)
     pkg = HOME / "package.json"
     if not pkg.exists():
         pkg.write_text(json.dumps({"name": "motion-studio-herramientas", "private": True, "description": "Herramientas compartidas de Motion Studio"}, indent=2), encoding="utf-8")
     nm = HOME / "node_modules"
-    faltan = [p for p in ["playwright", *[f"@fontsource/{f}" for f in FUENTES]] if not (nm / p).exists()]
-    if faltan and not comprobar and shutil.which("npm"):
-        print(f"  npm install en {HOME}: {len(faltan)} paquetes")
-        r = correr(["npm", "install", "--no-audit", "--no-fund", *faltan], cwd=HOME)
-        if r and r.returncode:
-            print(r.stderr[-800:])
-        faltan = [p for p in faltan if not (nm / p).exists()]
-    sin_pw = ("no instalado -> python scripts/preparar.py" if comprobar
-              else "npm no está en el PATH" if not shutil.which("npm") else "falló `npm install` (ver arriba)")
-    informe("Playwright", "playwright" not in faltan, str(HOME) if "playwright" not in faltan else sin_pw)
+    faltan = [n for n, spec in NPM if falta_npm(nm, n, spec)]
+    # Instalada en la versión fija, pero package.json la pide con «^» (o no la pide): no es una falta, pero se fija.
+    flojas = [n for n, spec in NPM if n not in faltan and sin_fijar(n, spec)]
+    if (faltan or flojas) and not comprobar and shutil.which("npm"):
+        specs = [spec for n, spec in NPM if n in faltan or n in flojas]
+        partes = ([f"{len(faltan)} paquetes"] if faltan else []) + \
+                 ([f"{', '.join(flojas)} por fijar en package.json (--save-exact)"] if flojas else [])
+        print(f"  npm install en {HOME}: {' y '.join(partes)}")
+        # Dos llamadas: las versiones fijas (three@0.170.0) con --save-exact, para que package.json guarde "0.170.0"
+        # y no "^0.170.0"; el resto (playwright, fuentes) como siempre, con su rango «^» y sin fijar.
+        fijas = [s for s in specs if version_fija(s)]
+        libres = [s for s in specs if s not in fijas]
+        for grupo, extra in ((libres, []), (fijas, ["--save-exact"])):
+            if grupo:
+                r = correr(["npm", "install", "--no-audit", "--no-fund", *extra, *grupo], cwd=HOME)
+                if r and r.returncode:
+                    print(r.stderr[-800:])
+        faltan = [n for n, spec in NPM if n in faltan and falta_npm(nm, n, spec)]
+        flojas = [n for n, spec in NPM if n in flojas and n not in faltan and sin_fijar(n, spec)]
+    por_que = ("-> python scripts/preparar.py" if comprobar
+               else "· npm no está en el PATH" if not shutil.which("npm") else "· falló `npm install` (ver arriba)")
+    informe("Playwright", "playwright" not in faltan, str(HOME) if "playwright" not in faltan else "no instalado " + por_que)
+    v3 = version_npm(nm, "three")
+    if "three" in faltan:
+        detalle = (f"hay {v3}, se fija {THREE} " if v3 else f"{THREE} no instalado ") + por_que
+    else:
+        detalle = f"{v3} en /node_modules/three"
+        if "three" in flojas:   # instalada bien: aviso, no falta (--comprobar no da 1 por esto)
+            detalle += (f" (package.json pide «{pedido_en_package('three') or 'nada'}», no «{THREE}»: "
+                        + ("se fija con python scripts/preparar.py" if comprobar
+                           else "npm no está en el PATH" if not shutil.which("npm") else "no se pudo fijar, ver arriba") + ")")
+    informe("Three.js (2.5D)", "three" not in faltan, detalle)
     fuentes = [f for f in faltan if f.startswith("@fontsource/")]
     informe(f"fuentes ({len(FUENTES)})", not fuentes, "en /node_modules/@fontsource/..." if not fuentes else "faltan: " + ", ".join(fuentes))
     if "playwright" in faltan:
@@ -313,6 +378,37 @@ def edicion(modelo, gpu_whisper):
             informe(f"modelo {modelo}", False, "falló la descarga (¿sin conexión?)")
 
 
+def blender_opcional():
+    """Blender es opcional (modo 2.5D: recursos25d.py y abrir_en_blender.py). Informa, sin contarlo como falta."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from nuevo import buscar_blender
+    ruta = buscar_blender()
+    if not ruta:
+        print(f"  {'--   ':5} {'Blender (opcional)':22} no encontrado; solo hace falta para el modo 2.5D con Blender")
+        return None
+    try:
+        v = subprocess.run([ruta, "--version"], capture_output=True, text=True, timeout=60).stdout.splitlines()[0].strip()
+    except Exception:
+        v = "?"
+    print(f"  {'OK   ':5} {'Blender (opcional)':22} {v} · {ruta}")
+    return {"ruta": ruta, "version": v}
+
+
+def leer_estado():
+    """estado.json anterior como dict ({} si no existe o está roto): cada ruta lo funde, nunca lo pisa entero."""
+    try:
+        d = json.loads((HOME / "estado.json").read_text(encoding="utf-8-sig"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def guardar_estado(nuevo):
+    """Funde `nuevo` sobre el estado.json anterior. Así --comprobar (antes de cada video) no borra la clave «perfil»
+    que escribe --perfil y que leen assets/edicion/analizar.py y editar.py."""
+    (HOME / "estado.json").write_text(json.dumps({**leer_estado(), **nuevo}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--comprobar", action="store_true", help="solo verificar, sin instalar nada")
@@ -330,9 +426,7 @@ def main():
     if a.perfil or a.edicion:
         p = perfil()
         HOME.mkdir(parents=True, exist_ok=True)
-        estado = json.loads((HOME / "estado.json").read_text(encoding="utf-8")) if (HOME / "estado.json").exists() else {}
-        estado["perfil"] = {**p, "fecha": datetime.datetime.now().isoformat(timespec="seconds")}
-        (HOME / "estado.json").write_text(json.dumps(estado, ensure_ascii=False, indent=2), encoding="utf-8")
+        guardar_estado({"perfil": {**p, "fecha": datetime.datetime.now().isoformat(timespec="seconds")}})
         faltan = [n for n, ok, _ in resultados if not ok and n != "Whisper (nivel completo)"]
         return 1 if faltan else 0
     print(f"Motion Studio · {'comprobando' if a.comprobar else 'preparando'} herramientas ({platform.system()})")
@@ -342,11 +436,13 @@ def main():
     renderer = ""
     if hay_node and npm_compartido(a.comprobar):
         renderer = gpu()
+    blender = blender_opcional()
     faltan = [n for n, ok, _ in resultados if not ok]
     estado = {"fecha": datetime.datetime.now().isoformat(timespec="seconds"), "sistema": platform.platform(),
-              "herramientas": HOME.as_posix(), "renderer": renderer, "faltan": faltan, "fuentes": FUENTES}
+              "herramientas": HOME.as_posix(), "renderer": renderer, "faltan": faltan, "fuentes": FUENTES,
+              "three": version_npm(HOME / "node_modules", "three") or None, "blender": blender}
     if HOME.exists():
-        (HOME / "estado.json").write_text(json.dumps(estado, ensure_ascii=False, indent=2), encoding="utf-8")
+        guardar_estado(estado)   # conserva «perfil» (y cualquier otra clave) del estado anterior
     if faltan:
         print(f"\nFaltan: {', '.join(faltan)}. Sigue las indicaciones de arriba y repite `python scripts/preparar.py`.")
         return 1

@@ -24,10 +24,13 @@ Selecciona los criterios según el lenguaje y acabado del brief (`estilos.md`). 
 
 | Comando | Qué cubre | Código de salida |
 |---|---|---|
-| `python scripts/preparar.py --comprobar` | Entorno: Python, numpy y Pillow, Node, FFmpeg, Playwright, fuentes, GPU | 1 si falta algo |
-| `node auditar.mjs` | Contrato estático: relojes, aleatorios, `fillText` directo, `ctx.reset()` | 1 si hay un ERROR |
+| `python scripts/preparar.py --comprobar` | Entorno: Python, numpy y Pillow, Node, FFmpeg, Playwright, Three.js 0.170.0, fuentes, GPU | 1 si falta algo |
+| `node auditar.mjs` | Contrato estático: relojes, aleatorios, `fillText` directo, `ctx.reset()`. Revisa los `.html/.js/.mjs/.css` (nunca los `.cjs`) salvo las carpetas `node_modules`, `review`, `exportaciones`, `audio`, `assets` y `.git`, los archivos `render.mjs`, `auditar.mjs`, `lectura.mjs` y `*.min.*`, y los diagnósticos `_*.mjs` / `_*.cjs` de la raíz. Sí audita `qc_escena.mjs` y `exportar_glb.mjs`: en una plantilla recién copiada da 1 AVISO en `qc_escena.mjs` que no afecta al video | 1 si hay un ERROR |
 | `node render.mjs --determinismo [--t=...]` | Mismo `t`, mismo fotograma, en cualquier orden | 1 si hay diferencias |
 | `node render.mjs --ritmo` / `python ritmo.py video.mp4` | Movimiento, tramos muertos, cortes y curva de energía por tramos | 1 si falla. Exige diagnóstico, no fija la nota artística |
+| `node qc_escena.mjs [--paso= --desde= --hasta=]` | Composición sin renderizar (necesita `window.__qc`): texto fuera de la zona segura, texto sobre un protegido, foco fuera de cuadro, tiempo de lectura `max(1,2 s, letras/30)`; alto de los protegidos por plano en `review/qc/qc.json` | 1 si hay FALLA (zona segura o texto sobre protegido); 2 si hay un error |
+| `python pops.py video.mp4 [--desde s]` | Saltos no planificados de 1–3 fotogramas, respetando cortes, impactos y re-ganchos. Un transitorio de 2 fotogramas o más que se repite otras 2 veces a ±5 s en su plano es «recurrente» y no falla; uno de 1 fotograma nunca lo es | 1 si hay algún SALTO; 2 si hay un error |
+| `python revisar_guion.py [--estricto]` | Guion con la voz medida: palabras/s, gancho, pausas, duración, bucle | Con `--estricto`, 1 si hay un aviso bloqueante; 2 si falta `audio/guion.json` o los tiempos |
 | `python audio/musica.py` | −14 LUFS y cuadrícula de pulsos sobre los golpes reales | Avisa en consola |
 | `python verificar.py [video.mp4]` | Exportación: códec, píxeles, resolución, fps, duración, sonoridad, true peak, etiquetas de color, fotogramas negros o congelados | 1 si falla una comprobación bloqueante |
 
@@ -159,10 +162,12 @@ Selecciona los criterios según el lenguaje y acabado del brief (`estilos.md`). 
   - tiempos estimados en lugar de medidos sobre la voz;
   - contadores que tiemblan (usa `numero()`).
 - **Detección:**
+  - `node qc_escena.mjs` si la página publica `window.__qc(t)`: zona segura, texto sobre un protegido y tiempo de lectura de cada aparición, con hojas marcadas en `review/qc/`;
   - hoja de contacto con la zona segura marcada;
   - con voz, comparar el inicio de cada frase con la duración real del audio.
 - **Corrección:** mover el texto al tercio central; partir las frases; anclar los tiempos al audio de la voz.
-- **Prueba automática:** no hay generador ni verificador de subtítulos. El texto en pantalla se revisa sobre la hoja de contacto. Los subtítulos por palabra a partir de una transcripción están planificados para la edición de video real.
+- **Textos clave** (la cifra del gancho, el dato que se repite, el remate): el mínimo de 1,2 s o 30 caracteres/s es para subtítulos que acompañan a la voz. El público de XEON se quejó de que los textos pasaban demasiado rápido para leerlos, así que un texto clave debe quedar completo, opaco y casi quieto más tiempo. Usa la regla de XEON (0,4 s + 1 s por cada 16 letras, `assets/ejemplos/lectura-xeon/`) o `lecturaMinima()` de `kit/textos.js` (~3 palabras/s + 0,6 s). En `qc_escena.mjs` se acerca con `qc.letrasPorSeg: 16`, que vale para todos los textos de esa pasada y no suma los 0,4 s fijos.
+- **Prueba automática:** parcial. `qc_escena.mjs` comprueba zona segura (FALLA), texto que tapa más del 12 % de un protegido (FALLA) y tiempo de lectura `max(1,2 s, letras/30)` (AVISO; `qc.lecturaMin` y `qc.letrasPorSeg` en `motion.config.json`). Necesita que la página publique las cajas y las `letras` de cada texto; no mide la sincronía con la voz, el contraste ni si el texto está quieto. `produccion.py` genera SRT por palabra en animación; los subtítulos incrustados por palabra en la edición de video real siguen planificados.
 
 ## 8. Audio: música, efectos y voz
 
