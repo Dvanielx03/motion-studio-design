@@ -208,6 +208,23 @@ Límites conocidos: los tirones también cuentan los rebotes de risa a 12 dibujo
 caen); y al seguir un gesto hacia arriba la cámara puede pasar por encima de la cabeza de quien señala: elige `angulo`
 para pasar a su lado y compruébalo en los fotogramas.
 
+## Acabado realista estilizado (18 nov 2026)
+
+Medido en los Shorts recientes de la referencia (Ricks Clips, 5 y 15 nov; `docs` del video «The Hotel That Rose With the Guests Inside»): los escenarios usan **luz física** (cielo con nubes, sombras suaves, oclusión ambiental, brillo en neones y faroles, vegetación y materiales con relieve). Los nuestros usaban colores por bandas (`MeshToonMaterial`). El usuario eligió el acabado realista estilizado y aprobó la hoja de diseño v2 y la muestra.
+
+| Pieza | Cómo |
+|---|---|
+| Motor | `R.crearMotorRealista({ W, H, ss: 1.5, ao: { radio: 0.7 }, bloom: { fuerza: 0.42, umbral: 1.1 } })` en lugar de `E3.crearMotor`. Dibuja dos veces por fotograma (determinismo) y deja `motor.dibujar(ctx, escena, camara)` igual que antes |
+| Cielo y ambiente | `R.cieloFisico(renderer, escena, { elevacion, azimut, turbidez })` en exteriores; `R.entornoInterior` en interiores. `escena.userData.exposicion` por escena |
+| Sol | `R.luzSol(escena, { dir: cielo.sol × 50, … })`: su cámara de sombras ve la capa 2 (los proyectores de los billboards) |
+| Materiales | `R.materialPBR('ladrillo', { rep, semilla, … })` y `R.materialLiso(color, { rugosidad, metal, emisivo })`. Suelos húmedos: `especular: 0.25–0.45` (en three 0.170, con `scene.environment`, `material.envMapIntensity` **no se aplica**) |
+| Personajes | `R.prepararPersonaje(E3.crearBillboard(…), { tinte })` y `R.prepararManada(m)`: color plano del dibujo (sin tono ni AO), tapados por lo que esté delante, con el tinte de la luz del lugar. La cara lleva `est.luz` (media luna de sombra) |
+| Lo que tapa la cámara | Los billboards y los miembros de una multitud a menos de 1,6–1,8 m de la cámara se ocultan (si no, una cara gigante tapa el plano en las grúas y travellings) |
+
+- **Coste medido** (RTX 3050, ss 1,5, 3 trabajadores): **11 s por segundo de video** en la muestra de 24 s. En los tramos con desenfoque de movimiento cuesta ×4.
+- **Determinismo:** 6 de 6 instantes idénticos, repetidos y en orden inverso, con AO y bloom.
+- **No sustituye a la premisa** (hipótesis H6 del análisis): en la referencia, el control de cola baja tenía tan buena animación como los ganadores.
+
 ## Producción diaria: qué va en serie y qué en paralelo
 
 **En serie (cada paso depende del anterior):** guion aprobado → voz grabada → tiempos de voz → planos anclados → muestra autorizada → completo → QC final → entrega.

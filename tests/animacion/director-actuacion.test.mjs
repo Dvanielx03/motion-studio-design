@@ -22,6 +22,9 @@ cerca(D.en('sloppy'), 0.10); cerca(D.fin('romans'), 1.05); cerca(D.en('crack', 2
 cerca(D.t('@crack#2+0.15'), 3.65); cerca(D.t('@crack#2$'), 3.9); cerca(D.t('@Romans-0.08'), 0.52); cerca(D.t(1.25), 1.25);
 cerca(D.t('@rom'), 0.60, 1e-9, 'prefijo de 3+ letras');
 cerca(D.t('@senal'), 4.2, 1e-9, 'sin tildes');
+// t('@palabra', n): la ocurrencia como 2.º argumento (antes se ignoraba en silencio: P09 del hotel cayó en la 1.ª «and»)
+cerca(D.t('@crack', 2), D.t('@crack#2'), 1e-9, 't(ancla, n) = ancla#n'); cerca(D.t('@crack', 2, 0), D.t('@crack#2'), 1e-9);
+assert.throws(() => D.t('@crack#2', 2), /ocurrencia inválida/); assert.throws(() => D.t('@crack', 0), /ocurrencia inválida/);
 assert.throws(() => D.t('@nada'), /no encuentro/); assert.throws(() => D.en('crack', 3), /n\.º 3/); assert.throws(() => D.t('crack'), /ancla inválida/);
 const sb = D.resolver({ planos: [{ id: 'P01', inicio: 0, fin: '@crack$', camara: [['@sloppy', { pos: [0, 1, 5], mira: [0, 1, 0] }], ['@crack#2', { pos: [0, 1, 3], mira: [0, 1, 0] }, 'suave']] }],
   actuacion: { doctora: [['@crack#2', { pose: 'senala' }], ['@sloppy', { pose: 'reposo' }]] } });

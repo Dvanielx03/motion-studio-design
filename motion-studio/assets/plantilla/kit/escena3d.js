@@ -504,7 +504,11 @@ export async function exportarGLB(grupo, anclas = {}) {
 // Igual que camaraClaves, pero sin pararse en las claves intermedias: Hermite cúbico con tangentes por diferencias en
 // el TIEMPO (la velocidad es continua aunque las claves no estén equiespaciadas); reposo solo al principio y al final.
 // Úsala cuando la intención del movimiento continúa a través de una clave (seguir una acción, una grúa que se inclina).
+// Claves desordenadas = salto de cámara silencioso (hotel levantado: un ancla «@lift#2» que casaba por prefijo con «lifted»
+// cayó 6 s antes que sus vecinas); se rechazan con el tiempo culpable.
+const _ordenadas = new WeakSet();
 export function camaraContinua(t, claves) {
+  if (!_ordenadas.has(claves)) { for (let k = 1; k < claves.length; k++) if (!(claves[k][0] > claves[k - 1][0])) throw new Error(`camaraContinua: claves desordenadas o repetidas en t=${claves[k][0]} (la anterior es t=${claves[k - 1][0]}); revisa las anclas`); _ordenadas.add(claves); }
   const n = claves.length, cp = c => ({ pos: [...c.pos], mira: [...c.mira], fov: c.fov ?? 35, giro: c.giro ?? 0 });
   if (t <= claves[0][0]) return cp(claves[0][1]);
   if (t >= claves[n - 1][0]) return cp(claves[n - 1][1]);

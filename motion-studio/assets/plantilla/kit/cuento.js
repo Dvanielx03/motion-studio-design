@@ -10,9 +10,11 @@
 //   b.actualizar(q24(t), camara, { ...PERSONAJE.inventor, cara: 'sorpresa', pose: 'senala', simbolos: ['exclamacion'] });
 //
 // est (todo opcional):
-//   ropa: { tipo: 'tunica'|'tunica_corta'|'toga'|'armadura'|'sacerdote'|'levita'|'bata'|'chaleco_obra', color, ribete, cinturon }
+//   ropa: { tipo: 'tunica'|'tunica_corta'|'toga'|'armadura'|'sacerdote'|'levita'|'bata'|'chaleco_obra'|'obrero'|'vestido'|'delantal',
+//           color, ribete, cinturon, pantalon, tirantes, delantal, chaleco, pajarita, banda, bandaRaya }
 //   piel, pelo: 'calvo'|'corto'|'coleta'|'rizos'|'largo'|'mono', colorPelo, bigote: 'fino'|'grueso'|'barba'|'chiva', gafas,
-//   sombrero: 'corona'|'laurel'|'gorro'|'casco'|'capucha'|'turbante'|'birrete'|'mitra'|'casco_obra', colorSombrero
+//   sombrero: 'corona'|'laurel'|'gorro'|'casco'|'capucha'|'turbante'|'birrete'|'mitra'|'casco_obra'|'chistera'|'bombin'|'gorra',
+//           colorSombrero, cintaSombrero, altoChistera
 //   cara: 'neutral'|'feliz'|'firme'|'sorpresa'|'risa'|'carcajada'|'enojo'|'suspicaz'|'miedo'|'dormido'|'orgullo'|
 //         'verguenza'|'triste';  boca (anula la de la cara): 'o'|'abierta'|'sonrisa'|'linea'|'triste'|'dientes'
 //   mira [x, y] (−1..1), giro (−1..1: la cara gira a un lado), lado (−1 = espejo), luz [lx, ly]
@@ -96,14 +98,15 @@ export function dibujarPersonaje(c, t, est = {}, w, h) {
   const lean = (P.lean || 0) + (est.inclina || 0);
   c.translate(cx, SUELO); c.rotate(lean); c.translate(-cx, -SUELO);
   c.translate(0, -reb);
-  const corta = ropa.tipo === 'tunica_corta' || ropa.tipo === 'armadura' || ropa.tipo === 'chaleco_obra' || ropa.tipo === 'bata';
+  const corta = ['tunica_corta', 'armadura', 'chaleco_obra', 'bata', 'obrero'].includes(ropa.tipo);
+  const pantalonVisible = ['bata', 'chaleco_obra', 'obrero'].includes(ropa.tipo);
   const hombroY = 38.5 * s - (P.hombros || 0) * s + resp - acento * 0.8 * s, bajo = (corta ? 79 : 90) * s;
   // ── piernas (visibles bajo la túnica corta; si no, solo los zapatos asoman) ──
   const ciclo = P.ciclo, paso = ciclo !== undefined ? Math.sin(ciclo * Math.PI * 2) : 0, zancada = P.corre ? 7 : 4;
   const pie = i => [cx + (i ? 3.4 : -3.4) * s + (i ? -paso : paso) * zancada * s, SUELO - Math.max(0, (i ? -paso : paso)) * (P.corre ? 3 : 1.5) * s];
   for (const i of [0, 1]) {
     const p = pie(i);
-    if (corta) linea(c, [[cx + (i ? 3 : -3) * s, bajo - 1 * s], p], (ropa.tipo === 'bata' || ropa.tipo === 'chaleco_obra' ? 3.2 : 1.7) * s, ropa.tipo === 'bata' || ropa.tipo === 'chaleco_obra' ? (ropa.pantalon || '#3A4A66') : TINTA);
+    if (corta) linea(c, [[cx + (i ? 3 : -3) * s, bajo - 1 * s], p], (pantalonVisible ? 3.2 : 1.7) * s, pantalonVisible ? (ropa.pantalon || '#3A4A66') : TINTA);
     el(c, p[0] + 1.6 * s, p[1] - 0.6 * s, 3 * s, 1.6 * s); relleno(c, s, '#3A2A22', 1);
   }
   // ── cuerpo de vestuario (A con vuelo; el bajo se mece al caminar) ──
@@ -141,7 +144,25 @@ export function dibujarPersonaje(c, t, est = {}, w, h) {
   if (ropa.tipo === 'chaleco_obra') { c.fillStyle = ropa.camisa || '#4A6A9A'; c.fillRect(cx - 14 * s, hombroY, 5 * s, 30 * s); c.fillRect(cx + 9 * s, hombroY, 5 * s, 30 * s);
     c.fillStyle = ropa.ribete || '#E8EEF2'; for (const yy of [16, 26]) c.fillRect(cx - 12 * s, hombroY + yy * s, 24 * s, 2 * s); }
   if (ropa.tipo === 'levita') { c.fillStyle = 'rgba(255,255,255,0.85)'; c.beginPath(); c.moveTo(cx - 2 * s, hombroY); c.lineTo(cx, hombroY + 12 * s); c.lineTo(cx + 2 * s, hombroY); c.fill(); }
-  if (ropa.ribete && !['armadura', 'bata', 'chaleco_obra'].includes(ropa.tipo)) { c.fillStyle = ropa.ribete; c.fillRect(cx - 14 * s, bajo - 2.2 * s, 28 * s, 2.2 * s); }
+  if (ropa.tipo === 'obrero') {   // camisa con tirantes (1860): la camisa es ropa.color; tirantes y pantalón aparte
+    c.fillStyle = ropa.tirantes || '#3A2A20'; for (const sx of [-1, 1]) { c.save(); c.translate(cx + sx * 4.2 * s, hombroY); c.rotate(sx * -0.08); c.fillRect(-1 * s, 0, 2 * s, bajo - hombroY); c.restore(); }
+    c.fillStyle = ropa.pantalon || '#3A4A66'; c.fillRect(cx - 12 * s, bajo - 7 * s, 24 * s, 7 * s);
+    c.fillStyle = 'rgba(30,20,10,0.25)'; for (const yy of [8, 14]) c.fillRect(cx - 0.5 * s, hombroY + yy * s, 1 * s, 1 * s); }
+  if (ropa.tipo === 'vestido') {   // corpiño, cintura y falda con volantes
+    c.fillStyle = ropa.ribete || 'rgba(255,255,255,0.5)'; c.fillRect(cx - 12 * s, hombroY + 13 * s, 24 * s, 1.6 * s);
+    c.fillStyle = 'rgba(30,20,40,0.12)'; for (let i = 0; i < 4; i++) c.fillRect(cx - 12 * s, bajo - (3 + i * 6) * s, 28 * s, 1.1 * s); }
+  if (ropa.tipo === 'delantal') {   // camisa (ropa.color) con delantal largo
+    c.fillStyle = ropa.delantal || '#EDE6D6'; c.beginPath(); c.moveTo(cx - 6 * s, hombroY + 6 * s); c.lineTo(cx + 6 * s, hombroY + 6 * s); c.lineTo(cx + 9.5 * s, bajo); c.lineTo(cx - 9.5 * s, bajo); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(40,30,20,0.25)'; c.fillRect(cx - 9 * s, hombroY + 15 * s, 18 * s, 1 * s); }
+  if (ropa.tipo === 'levita') {   // solapas y botones de la levita
+    c.fillStyle = 'rgba(0,0,0,0.18)'; for (const sx of [-1, 1]) { c.beginPath(); c.moveTo(cx + sx * 2 * s, hombroY); c.lineTo(cx + sx * 6 * s, hombroY + 3 * s); c.lineTo(cx + sx * 0.6 * s, hombroY + 14 * s); c.closePath(); c.fill(); }
+    c.fillStyle = 'rgba(255,240,200,0.55)'; for (let i = 0; i < 3; i++) { el(c, cx + 1.6 * s, hombroY + (16 + i * 4.5) * s, 0.6 * s, 0.6 * s); c.fill(); }
+    if (ropa.chaleco) { c.fillStyle = ropa.chaleco; c.beginPath(); c.moveTo(cx - 2 * s, hombroY + 1 * s); c.lineTo(cx + 2 * s, hombroY + 1 * s); c.lineTo(cx + 3 * s, hombroY + 18 * s); c.lineTo(cx - 3 * s, hombroY + 18 * s); c.closePath(); c.fill(); }
+    if (ropa.pajarita) { c.fillStyle = ropa.pajarita; c.beginPath(); c.moveTo(cx, hombroY + 1.5 * s); c.lineTo(cx - 2.6 * s, hombroY); c.lineTo(cx - 2.6 * s, hombroY + 3 * s); c.closePath(); c.moveTo(cx, hombroY + 1.5 * s); c.lineTo(cx + 2.6 * s, hombroY); c.lineTo(cx + 2.6 * s, hombroY + 3 * s); c.closePath(); c.fill(); } }
+  if (ropa.banda) {   // banda en diagonal (senador, alcalde)
+    c.save(); c.translate(cx, hombroY + 12 * s); c.rotate(-0.85); c.fillStyle = ropa.banda; c.fillRect(-18 * s, -1.8 * s, 36 * s, 3.6 * s);
+    if (ropa.bandaRaya) { c.fillStyle = ropa.bandaRaya; c.fillRect(-18 * s, -0.5 * s, 36 * s, 1 * s); } c.restore(); }
+  if (ropa.ribete && !['armadura', 'bata', 'chaleco_obra', 'obrero', 'vestido', 'delantal', 'levita'].includes(ropa.tipo)) { c.fillStyle = ropa.ribete; c.fillRect(cx - 14 * s, bajo - 2.2 * s, 28 * s, 2.2 * s); }
   if (ropa.cinturon) { c.fillStyle = ropa.cinturon; c.fillRect(cx - 12 * s, hombroY + 17 * s, 24 * s, 2.4 * s); }
   c.restore();
   cuerpo(); c.lineWidth = 1.3 * s; c.strokeStyle = TINTA; c.stroke();
@@ -254,6 +275,17 @@ function sombrero(c, s, x, hy, R, est) {
   else if (tipo === 'birrete') { c.beginPath(); c.rect(x - 7 * s, top - 3 * s, 14 * s, 4.4 * s); relleno(c, s, col || '#2A2A34', 1); c.beginPath(); c.moveTo(x - 11 * s, top - 3 * s); c.lineTo(x, top - 7 * s); c.lineTo(x + 11 * s, top - 3 * s); c.lineTo(x, top + 0.5 * s); c.closePath(); relleno(c, s, col || '#2A2A34', 1); }
   else if (tipo === 'casco_obra') { c.beginPath(); c.ellipse(x, top + 3.5 * s, R * 0.98, R * 0.72, 0, Math.PI, 0); c.closePath(); relleno(c, s, col || '#F2C42A', 1.1);
     el(c, x, top + 3.6 * s, R * 1.18, 1.6 * s); relleno(c, s, col || '#F2C42A', 1); linea(c, [[x, top - 5.6 * s], [x, top + 2.4 * s]], 1.2 * s, 'rgba(40,30,10,0.45)'); }
+  else if (tipo === 'chistera') {   // sombrero de copa: copa recta, cinta y ala curva
+    const hc = (est.altoChistera || 15) * s;
+    c.beginPath(); c.moveTo(x - 7.6 * s, top + 1.5 * s); c.lineTo(x - 7 * s, top - hc); c.quadraticCurveTo(x, top - hc - 1.6 * s, x + 7 * s, top - hc); c.lineTo(x + 7.6 * s, top + 1.5 * s); c.closePath(); relleno(c, s, col || '#24222A', 1.1);
+    c.fillStyle = est.cintaSombrero || '#5A2A2A'; c.fillRect(x - 7.5 * s, top - 2.6 * s, 15 * s, 2.6 * s);
+    c.beginPath(); c.moveTo(x - 12.5 * s, top + 0.5 * s); c.quadraticCurveTo(x, top + 4.6 * s, x + 12.5 * s, top + 0.5 * s); c.quadraticCurveTo(x, top + 2.2 * s, x - 12.5 * s, top + 0.5 * s); relleno(c, s, col || '#24222A', 1);
+    c.fillStyle = 'rgba(255,255,255,0.14)'; c.fillRect(x - 5 * s, top - hc + 2 * s, 2 * s, hc - 5 * s); }
+  else if (tipo === 'bombin') { c.beginPath(); c.ellipse(x, top + 1.5 * s, R * 0.82, R * 0.78, 0, Math.PI, 0); c.closePath(); relleno(c, s, col || '#3A2E26', 1.1);
+    c.beginPath(); c.ellipse(x, top + 2 * s, R * 1.12, 1.8 * s, 0, 0, Math.PI * 2); relleno(c, s, col || '#3A2E26', 1); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(x - R * 0.8, top - 0.6 * s, R * 1.6, 1.6 * s); }
+  else if (tipo === 'gorra') {   // gorra plana de obrero
+    c.beginPath(); c.moveTo(x - R * 0.98, top + 4.5 * s); c.quadraticCurveTo(x - R * 0.9, top - 4.5 * s, x + 1 * s, top - 4.2 * s); c.quadraticCurveTo(x + R * 1.05, top - 3 * s, x + R * 0.98, top + 3.5 * s); c.closePath(); relleno(c, s, col || '#5A5248', 1.1);
+    c.beginPath(); c.moveTo(x + R * 0.3, top + 3 * s); c.quadraticCurveTo(x + R * 1.2, top + 2 * s, x + R * 1.35, top + 5 * s); c.quadraticCurveTo(x + R * 0.9, top + 5.4 * s, x + R * 0.3, top + 4.6 * s); c.closePath(); relleno(c, s, col || '#5A5248', 1); }
   else if (tipo === 'mitra') { c.beginPath(); c.moveTo(x - 8 * s, top + 2 * s); c.lineTo(x - 6 * s, top - 9 * s); c.quadraticCurveTo(x, top - 15 * s, x + 6 * s, top - 9 * s); c.lineTo(x + 8 * s, top + 2 * s); c.closePath(); relleno(c, s, col || '#E9E1CF', 1.1);
     c.fillStyle = '#B8862E'; c.fillRect(x - 1 * s, top - 12 * s, 2 * s, 13 * s); }
   c.restore();

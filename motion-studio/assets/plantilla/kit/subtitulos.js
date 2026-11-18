@@ -22,6 +22,7 @@ const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').repla
 
 export function crearSubtitulos({ guion, palabras, preset = 'grande', idioma = 'es', enfasis = [], ocultos = [], cortes = [], ...opciones }) {
   const P = { ...PRESETS[preset], ...opciones }, DEBIL = new Set(DEBILES[idioma] || DEBILES.es);
+  if (opciones.colorEnfasis) P.enfasis = opciones.colorEnfasis;   // `enfasis` es la lista de palabras: el color va aparte
   // 1) tokens del guion con su línea
   const G = [];
   guion.forEach((txt, li) => String(txt.texto ?? txt).split(/\s+/).filter(Boolean).forEach(w => G.push({ w, li, n: norm(w) })));

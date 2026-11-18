@@ -25,8 +25,14 @@ export function crearDirector({ palabras = [] } = {}) {
   const en = (palabra, n = 1) => buscar(palabra, n).ini;
   const fin = (palabra, n = 1) => buscar(palabra, n).fin;
   // ancla de texto: '@palabra', '@palabra#2', '@palabra+0.2', '@palabra#2-0.1', '@palabra$' (final de la palabra)
-  const t = spec => {
+  // t('@palabra', n) también vale: antes el 2.º argumento se ignoraba en silencio y el plano caía en la 1.ª aparición
+  // (hotel levantado, 18 nov: T('@and', 3) ancló P09 en el segundo 10 en vez del 43)
+  const t = (spec, n) => {
     if (typeof spec === 'number') return spec;
+    if (n !== undefined) {
+      if (!Number.isInteger(n) || n < 1 || /#\d/.test(String(spec))) throw new Error(`director: ocurrencia inválida en t(${JSON.stringify(spec)}, ${n}) (usa '@palabra#n' o t('@palabra', n) con n ≥ 1, no los dos)`);
+      spec = String(spec).replace(/^(@[^#+\-$]+)/, `$1#${n}`);
+    }
     const m = /^@([^#+\-$]+)(?:#(\d+))?(\$)?([+-]\d*\.?\d+)?$/.exec(String(spec).trim());
     if (!m) throw new Error(`director: ancla inválida «${spec}» (usa '@palabra', '@palabra#2', '@palabra+0.2', '@palabra$')`);
     const w = buscar(m[1], m[2] ? +m[2] : 1);

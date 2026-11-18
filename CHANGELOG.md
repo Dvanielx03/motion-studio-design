@@ -4,6 +4,37 @@ Las entradas describen cambios del repositorio, no versiones publicadas ni garan
 
 ## Sin versión publicada — 2026-11-18
 
+### Acabado 3D realista estilizado, vestuario de época y anclas por ocurrencia
+
+- **Necesidad:** en los Shorts recientes de la referencia del nicho (Ricks Clips, 5 y 15 nov, vistos fotograma a fotograma), los escenarios tienen luz física (cielo, sombras suaves, oclusión ambiental, brillo y materiales con relieve). Nuestros pilotos usaban colores por bandas. El usuario eligió el acabado «3D realista estilizado» para «The Hotel That Rose With the Guests Inside» y aprobó la hoja de diseño v2 y la muestra.
+- **`kit/realista.js` (nuevo):**
+  - `crearMotorRealista`: PBR con ACES, GTAO, bloom y sombras suaves;
+  - un **pase aparte para los personajes 2D**: después del tono y del AO, con la profundidad del escenario;
+  - `cieloFisico` (Preetham + PMREM), `entornoInterior` y `luzSol` (ve la capa de los proyectores de sombra);
+  - texturas procedurales sembradas con relieve y rugosidad (`texturaPBR`, `materialPBR`, `materialLiso`), con `especular` para suelos húmedos;
+  - `prepararPersonaje` y `prepararManada` (tinte por escena), `nubes` y `pasto` instanciado.
+- **Determinismo:**
+  - el ruido de `GTAOPass` usaba `Math.random`: ahora va sembrado;
+  - lo translúcido se oculta en el pase de profundidad (con `overrideMaterial` tapaba a los personajes);
+  - `--determinismo`: 6 de 6 instantes idénticos.
+  - **Coste medido:** 11 s por segundo de video (RTX 3050, ss 1,5, 3 trabajadores).
+- **`kit/cuento.js`:**
+  - sombreros: chistera, bombín y gorra;
+  - vestuario: obrero con tirantes, vestido, delantal y banda;
+  - levita con solapas, chaleco y pajarita.
+  - **Compatibilidad:** sin los campos nuevos, todo se dibuja igual.
+- **`kit/subtitulos.js`:** `colorEnfasis`. Con el preset `nicho` era imposible dar color a la palabra clave, porque `enfasis` era a la vez la lista de palabras y el color.
+- **`kit/director.js`:** `t('@palabra', n)` acepta la ocurrencia y lanza un error si es inválida. Antes el 2.º argumento se ignoraba en silencio y un plano se ancló al segundo 10 en vez del 43.
+  - **Prueba:** `director-actuacion.test.mjs`, 77 comprobaciones.
+- **`kit/escena3d.js` → `camaraContinua`:** rechaza claves desordenadas o repetidas. Un ancla que casaba por prefijo («lift» → «lifted») dejó una clave 6 s antes que sus vecinas y la cámara saltó sin aviso.
+- **`_diag.mjs` en la plantilla:** evalúa una expresión en la página con la GPU del render. Encontró en 2 llamadas el fallo del pase de profundidad.
+- **Guías:**
+  - `produccion-25d.md`: § «Acabado realista estilizado»;
+  - `25d.md`: tabla del kit;
+  - `leccionero.md`: lecciones 40–47;
+  - `SKILL.md`: una línea.
+- **Sin cambiar:** el contrato `seek(t)`, `crearMotor` y el look por bandas (siguen disponibles), las autorizaciones y el render.
+
 ### Fluidez: guion y storyboard anclados a la voz, cámara con intención y actuación con principios de animación
 
 - **Necesidad:** el usuario pidió que las animaciones tengan más fluidez y un movimiento de cámara creativo, integrados con el guion, el storyboard y las etapas de producción. Medido en el gancho del completo v1 del piloto US (0–6,6 s):
