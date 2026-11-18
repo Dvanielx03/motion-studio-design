@@ -4,6 +4,56 @@ Las entradas describen cambios del repositorio, no versiones publicadas ni garan
 
 ## Sin versión publicada — 2026-11-18
 
+### Fluidez: guion y storyboard anclados a la voz, cámara con intención y actuación con principios de animación
+
+- **Necesidad:** el usuario pidió que las animaciones tengan más fluidez y un movimiento de cámara creativo, integrados con el guion, el storyboard y las etapas de producción. Medido en el gancho del completo v1 del piloto US (0–6,6 s):
+  - la cámara estaba casi quieta en 108 de 198 fotogramas;
+  - las poses cambiaban en 4 dibujos en línea recta;
+  - la boca no hablaba;
+  - el gesto de señalar tapaba la cara.
+
+  Ningún control lo marcaba.
+- **`kit/director.js` (nuevo):**
+  - tiempos anclados a palabras de la voz (`D.t('@palabra#n±s')`, `D.resolver` para un storyboard en datos);
+  - movimientos `mov.empuje`, `orbita`, `grua`, `seguir` (con retardo y aire delante), `revelar`, `vertigo`, `fijo` y `hacia`, que devuelven claves para `camaraContinua`;
+  - `encadenar`, que rechaza juntas en las que la cámara no coincide;
+  - `revisarTomas` (ventanas sin cambio de ángulo o escala), `velocidadCamara` (°/fotograma) y `acumularMovimiento` (desenfoque de movimiento determinista).
+  - **Justificación:** el movimiento de cámara tiene que tener un motivo (palabra, gesto u objeto) y sobrevivir a una voz regrabada.
+- **`kit/actuacion.js` (nuevo):**
+  - `crearActuacion` (claves con herencia, anticipación, exceso con resorte, acento, inercia y sostén vivo);
+  - `curvaPose`;
+  - `crearHabla` (boca con la envolvente de la voz o parloteo);
+  - `arco` (la mano viaja en arco).
+- **`kit/cuento.js`:**
+  - `mezcla` admite −0,4..1,4 (antes se recortaba a 0–1);
+  - las manos viajan en arco (`arco: 0` vuelve a la recta);
+  - campos nuevos `acento`, `inercia`, `inclina` y `habla`.
+  - **Compatibilidad:** sin los campos nuevos, todo se dibuja como antes, salvo el arco de las manos durante una transición `poseB`/`mezcla`, que ahora se abomba (`arco: 0` lo deja como antes).
+- **`scripts/envolvente.py` (nuevo):** la envolvente de la voz por fotograma para la boca. El suelo va en el percentil 35 y la caída en 25 ms: con p10 y 80 ms la boca quedaba abierta el 80 % del tiempo.
+- **`scripts/comparar.py`:** añade fotogramas congelados, tirones por minuto y aspereza del movimiento a 30 fps. Medido:
+
+  | Video | Tirones/min | Aspereza |
+  |---|---|---|
+  | Referencia | 45 | 0,07 |
+  | Concreto v1 | 44 | 0,07 |
+  | Torre v2 | 100 | 0,15 |
+- **Guías:**
+  - `produccion-25d.md`: § «Fluidez», que dice qué cambia en guion, storyboard, animatic, producción y QC, con la tabla medida;
+  - `preproduccion.md`: ficha de movimiento 2.5D (campos Movimiento y Actuación por palabra);
+  - `25d.md`: tabla del kit;
+  - `leccionero.md`: lecciones 34–39;
+  - `SKILL.md`: una línea.
+- **Pruebas:** `tests/animacion/director-actuacion.test.mjs` con 75 comprobaciones. Las de encuadre-zona, kit-tecnicas, secuencia-cache y produccion_test siguen pasando.
+- **Demostración** (en una copia del proyecto del piloto, sin tocar el completo aprobado): el gancho rehecho con el director y la actuación.
+
+  | Medida | v1 | Demo |
+  |---|---|---|
+  | Cámara casi quieta | 55 % de los fotogramas | 4 % |
+  | Aspereza | 0,26 | 0,10 |
+
+  El QC no da FALLA y el render va a 8,3 s por segundo de video. Pendiente: en el paneo, la cabeza de quien señala pasa cortada en primer término.
+- **Sin cambiar:** las autorizaciones, el contrato `seek(t)` y el comportamiento de `camaraContinua`, `camaraClaves` y de los subtítulos.
+
 ### Nivel de referencia del nicho: de un análisis comparativo a herramientas de la skill
 
 - **Necesidad:** el piloto 2.5D «Te vendieron la Torre Eiffel» (completo v2) pasó todos los controles técnicos, pero una crítica independiente le dio 6,0. Se comparó con la referencia de estilo «The Ancient Jar That Warned an Empire» (Ricks Clips; 35 M de vistas según vidIQ el 18 nov). Lo medido (FFmpeg `signalstats`, `ebur128`, faster-whisper) y lo observado se separaron en un análisis por secuencias y marcas de tiempo, fuera de este repositorio: `biblioteca/referencias/ancient-jar/comparacion/` del proyecto de contenidos.

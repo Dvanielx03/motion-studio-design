@@ -160,6 +160,54 @@ Comparación de «The Ancient Jar That Warned an Empire» (Ricks Clips, 35 M de 
   - **subtítulos** con `kit/subtitulos.js`, preset `'nicho'` (inglés) o `'grande'` (el de Hanói y la Torre).
 - **9. QC:** `python <skill>/scripts/comparar.py referencia.mp4 completo.mp4 --palabras-ref … --palabras …` antes del crítico. Una fila «FUERA» es una pregunta para el crítico y se anota en `REVISION.md`.
 
+## Fluidez: del guion a la cámara y la actuación (18 nov 2026)
+
+Medido en el gancho del piloto US (0–6,6 s, completo v1): la cámara estaba **casi quieta en 108 de 198 fotogramas**
+(< 0,15°/fotograma con `velocidadCamara`); los personajes cambiaban de pose en 4 dibujos en línea recta, sin
+anticipación ni asentamiento; la doctora dice «Sloppy work» con la boca quieta; y el gesto de señalar cruzaba la mano por
+delante de la cara. Ningún control lo marcaba: el movimiento medio estaba dentro de la referencia. Con `kit/director.js`
+y `kit/actuacion.js` se rehízo el gancho en una copia del proyecto (`03-proyecto-fluidez`):
+
+| Medida (gancho 0–6,6 s) | Completo v1 | Demostración | Cómo se mide |
+|---|---|---|---|
+| Fotogramas con la cámara casi quieta | 108 de 198 (55 %) | 8 (4 %) | `velocidadCamara` sobre las claves |
+| Velocidad de cámara mediana / máxima (°/fotograma) | 0,14 / 0,47 | 0,41 / 2,36 | ídem |
+| Fotogramas con desenfoque de movimiento | 0 | 33 | velocidad > 1,2°/fotograma |
+| Aspereza del movimiento (baja = fluye) | 0,26 | 0,10 | `comparar.py` (30 fps) |
+| Movimiento mediano a 30 fps | 5,2 | 6,8 | ídem |
+| Boca que habla con la voz | no | sí (abre el 60 %, 2,4 cierres/s) | `scripts/envolvente.py` |
+| QC (`qc_escena.mjs`, cada 0,1 s) | — | sin FALLA; 8 avisos (lectura y caras que salen en el paneo) | |
+
+Lo que cambia en cada etapa:
+- **2. Guion:** cada línea lleva, además del texto, su **beat** (qué cambia), la **emoción**, la **palabra ancla** donde
+  aterriza el gesto o la cámara y el **motivo de cámara** (seguir un gesto, revelar escala, acercarse al detalle). Una
+  línea sin palabra ancla es una línea en la que no pasa nada en imagen.
+- **3. Storyboard:** cada ficha añade el campo **Movimiento** (preset de `mov`, sujeto, motivo y llegada) y la
+  **Actuación por palabra** como datos que el director resuelve (`D.resolver`): `['@palabra±s', estado]`. Plantilla en
+  `preproduccion.md` («Ficha de movimiento 2.5D»). Si la voz se regraba, los planos se recolocan solos.
+- **5. Animatic:** antes de renderizar, `revisarTomas(planos, camaraEn, { ventana: 2.5 })` sobre las claves: una ventana
+  sin cambio de ángulo (≥ 12°) ni de escala (≥ 15 %) es un aviso, salvo que el plano lo pida (remate cómico, `mov.fijo`).
+- **6. Producción:**
+  - cámara: `encadenar(mov.empuje(…), mov.hacia(…), mov.grua(…))` sobre `camaraContinua`. `encadenar` rechaza una junta
+    en la que la cámara no coincide (sería un salto dentro de un plano continuo);
+  - los gestos empiezan **0,25 s antes** de la palabra que los motiva (`D.t('@palabra') - 0.25`): la anticipación y el
+    movimiento principal aterrizan sobre ella;
+  - actuación: `crearActuacion(claves, { base, habla })` da anticipación, exceso con resorte, acento de cabeza, inercia
+    de ropa, pelo y sombrero y sostén vivo; la mano viaja en **arco**;
+  - quien habla en pantalla mueve la boca con `crearHabla(envolvente, { ventanas })`
+    (`python <skill>/scripts/envolvente.py audio/voz.wav`);
+  - desenfoque: `acumularMovimiento` solo cuando `velocidadCamara` > 1,2°/fotograma, con 4 submuestras y obturador de
+    180°. La actuación se queda en el instante del fotograma (los dibujos a 24/s siguen nítidos) y la cámara se emborrona.
+    Cuesta ×4 en esos fotogramas: la muestra del gancho se renderizó a 8,3 s por segundo de video;
+  - señalar: con `dir` entre −40° y −70° para señalar arriba, o `lado: −1` si el objetivo está al otro lado. Con `dir`
+    −125° la mano tapa la cara (lección 35).
+- **9. QC:** `comparar.py` incluye fotogramas congelados, **tirones por minuto** y **aspereza**. Medido: la referencia da
+  45 tirones/min y 0,07 de aspereza; el concreto v1, 44 y 0,07; la Torre v2, 100 y 0,15 (a golpes).
+
+Límites conocidos: los tirones también cuentan los rebotes de risa a 12 dibujos/s, que son estilo, no fallo (mira dónde
+caen); y al seguir un gesto hacia arriba la cámara puede pasar por encima de la cabeza de quien señala: elige `angulo`
+para pasar a su lado y compruébalo en los fotogramas.
+
 ## Producción diaria: qué va en serie y qué en paralelo
 
 **En serie (cada paso depende del anterior):** guion aprobado → voz grabada → tiempos de voz → planos anclados → muestra autorizada → completo → QC final → entrega.

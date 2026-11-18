@@ -5,6 +5,11 @@
 Mide en los dos (18 nov 2026, piloto de la Torre Eiffel frente a «The Ancient Jar That Warned an Empire»):
   · movimiento: diferencia media entre cuadros a 10 fps y 90×160 en gris (mediana y p25 por segundo);
   · cortes duros: saltos de cuadro muy por encima del movimiento local (no ve fundidos ni barridos: cuéntalos en la hoja);
+  · fluidez (18 nov, demostración del gancho del piloto US), a 30 fps y 180×320: fotogramas congelados (nada se mueve),
+    tirones por minuto (saltos de 2,5× el movimiento de su segundo que no son cortes: dibujos que saltan, cámara que
+    arranca o frena de golpe) y aspereza (variación mediana del movimiento entre fotogramas / su mediana: baja = el
+    movimiento fluye; alta = a golpes). Medido: referencia 45 tirones/min y aspereza 0,07; concreto v1 44 y 0,07;
+    Torre v2 100 y 0,15;
   · color: YAVG, SATAVG, YLOW e YHIGH de FFmpeg signalstats a 2 fps (mediana y p90, antes de reducir);
   · sonido: sonoridad integrada y LRA (ebur128), golpes por segundo (flujo espectral) y, con las palabras de la voz
     (JSON de faster-whisper o de produccion.py), cuántos dB queda el fondo (música + ambiente) bajo la voz en los huecos.
@@ -37,6 +42,17 @@ def movimiento(v):
     cortes = [i for i in range(len(dif)) if dif[i] >= 18 and dif[i] >= 6 * np.median(dif[max(0, i - 10):i + 10])]
     return {"mov_mediana": float(np.median(seg)), "mov_p25": float(np.percentile(seg, 25)),
             "cortes_duros": len(cortes), "cortes_t": [round((i + 1) / 10, 1) for i in cortes], "dur": len(f) / 10}
+
+
+def fluidez(v, fps=30):
+    raw = ff("-i", v, "-vf", f"fps={fps},scale=180:320,format=gray", "-f", "rawvideo", "-")
+    f = np.frombuffer(raw, np.uint8).reshape(-1, 320, 180).astype(np.float32)
+    d = np.abs(np.diff(f, axis=0)).mean(axis=(1, 2))
+    med = float(np.median(d))
+    loc = np.array([np.median(d[max(0, i - fps // 2):i + fps // 2]) for i in range(len(d))])
+    tirones = int(np.sum((d > 2.5 * np.maximum(loc, 0.3)) & (d < 18)))
+    return {"congelados_pct": float(np.mean(d < 0.25) * 100), "tirones_min": tirones * 60 / max(1e-6, len(f) / fps),
+            "aspereza": float(np.median(np.abs(np.diff(d))) / max(med, 1e-6))}
 
 
 def color(v):
@@ -87,7 +103,7 @@ def fondo(x, palabras):
 
 
 def medir(v, palabras):
-    a = audio(v); d = {**movimiento(v), **{f"{k}": c for k, c in color(v).items()}, "lufs": a["lufs"], "lra": a["lra"], "golpes_s": a["golpes_s"]}
+    a = audio(v); d = {**movimiento(v), **fluidez(v), **{f"{k}": c for k, c in color(v).items()}, "lufs": a["lufs"], "lra": a["lra"], "golpes_s": a["golpes_s"]}
     d["fondo_db"] = fondo(a["x"], palabras) if palabras else float("nan")
     return d
 
@@ -102,6 +118,9 @@ def main():
         # (nombre, valor ref, valor nuestro, ¿dentro?)
         ("movimiento (mediana)", R["mov_mediana"], N["mov_mediana"], N["mov_mediana"] >= 0.8 * R["mov_mediana"]),
         ("movimiento (p25, tramos quietos)", R["mov_p25"], N["mov_p25"], N["mov_p25"] >= 0.7 * R["mov_p25"]),
+        ("fotogramas congelados (%)", R["congelados_pct"], N["congelados_pct"], N["congelados_pct"] <= R["congelados_pct"] + 2),
+        ("tirones por minuto", R["tirones_min"], N["tirones_min"], N["tirones_min"] <= 1.5 * R["tirones_min"] + 5),
+        ("aspereza del movimiento", R["aspereza"], N["aspereza"], N["aspereza"] <= R["aspereza"] + 0.05),
         ("cortes duros por minuto", R["cortes_duros"] * 60 / R["dur"], N["cortes_duros"] * 60 / N["dur"], N["cortes_duros"] * 60 / N["dur"] <= R["cortes_duros"] * 60 / R["dur"] + 4),
         ("YAVG mediana", R["YAVG"][0], N["YAVG"][0], abs(N["YAVG"][0] - R["YAVG"][0]) <= 12),
         ("YLOW mediana (negros)", R["YLOW"][0], N["YLOW"][0], abs(N["YLOW"][0] - R["YLOW"][0]) <= 8),

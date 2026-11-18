@@ -85,6 +85,25 @@ Plantilla para copiar dentro del storyboard:
 - Enlace: …
 ```
 
+#### Ficha de movimiento 2.5D (planos con cámara 3D y personajes)
+
+En la ruta 2.5D (`produccion-25d.md`, § «Fluidez») cada ficha añade dos campos que el código consume tal cual, con los
+tiempos anclados a palabras de la voz (`kit/director.js`): si la voz cambia, el plano se recoloca solo.
+
+| Campo | Decisión |
+| --- | --- |
+| **Movimiento** | Tramos de cámara en orden: preset (`empuje`, `orbita`, `grua`, `seguir`, `revelar`, `vertigo`, `fijo`, `hacia`), sujeto, de dónde a dónde y **por qué** (qué gesto, palabra u objeto lo motiva). Cada tramo empieza donde acaba el anterior. |
+| **Actuación por palabra** | Por personaje: `[ancla, estado]` con la pose, la cara y la mirada que aterrizan en esa palabra. Quién habla en pantalla y en qué ventana (boca con la voz). |
+
+```markdown
+### P01 · muro · 0–6,62 s · gancho
+- Movimiento: empuje con arco sobre los dos mientras se ríen (0 → @pointing) → hacia la lupa siguiendo el dedo
+  (@pointing → @lumps$) → grúa que sube y se aleja hasta el muro entero (@lumps$ → 6,62): la escala llega con «Roman wall».
+- Actuación por palabra:
+  - doctora: [0, ofrece/risa, habla hasta @work$] · [@the−0,25, manos_boca/carcajada] · [@pointing−0,25, senala −62°/suspicaz] · [@year−0,25, cruzados/orgullo]
+  - colega: [0, sostiene/carcajada] · [@scientist−0,25, suspicaz] · [@at−0,25, manos_boca/risa] · [@year−0,1, orgullo]
+```
+
 Ejemplo de dos planos conectados de una animación ilustrada. Son decisiones para esta pieza, no una estética predeterminada:
 
 **Común E01/L1:** escritorio de perfil; lámpara cálida a la izquierda, sombras suaves a la derecha y fondo menos contrastado que las manos. Recursos: mesa, móvil y cuaderno, ilustraciones propias propuestas. Pieza sin voz ni texto en pantalla.

@@ -20,7 +20,12 @@
 //         'camina'|'corre'|'empuja'|'encoge';  poseB + mezcla (0–1): transición entre dos poses
 //   dir (grados de 'senala', 0 = derecha, −90 = arriba), fase (0–1 del ciclo de camina/corre; si falta, sale de t)
 //   objeto(c, s, x, y): dibuja lo que sostiene entre las manos (pose 'sostiene'/'ofrece'), rebote (0–1), simbolos []
+//   FLUIDEZ (kit/actuacion.js los calcula desde las claves del storyboard; a mano también valen):
+//   mezcla puede salir de 0–1 (−0,4..1,4: anticipación y exceso); las manos viajan en ARCO, no en recta (arco: 0 lo quita)
+//   acento (0–1): la cabeza marca el cambio; inercia (−1..1): bajo de la ropa, pelo y sombrero van con retraso;
+//   inclina (rad): balanceo del sostén vivo; habla (0–1): la boca abre con la voz (envolvente o parloteo)
 // Determinista: todo sale de t (cuantízalo a 12/24 dibujos/s al llamar) y de est. Sin fuentes: los símbolos son trazos.
+import { arco } from './actuacion.js';
 const TINTA = '#1E1A22';
 const k01 = x => Math.min(1, Math.max(0, x));
 const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
@@ -81,15 +86,18 @@ export function dibujarPersonaje(c, t, est = {}, w, h) {
   const cx = w / 2, SUELO = 97.5 * s;
   // rebote (risa, salto) y respiración
   const reb = (est.rebote || 0) * Math.abs(Math.sin(d * 1.35)) * 2.2 * s, resp = Math.sin(d * 0.5) * 0.25 * s;
-  const hy = 22 * s - reb + resp, R = 14 * s;
+  const acento = est.acento || 0, inercia = est.inercia || 0;
+  const hy = 22 * s - reb + resp + acento * 1.6 * s, R = 14 * s;
   // pose (con transición) y postura
-  const pA = pose(est.pose || 'reposo', s, cx, d, est, hy), pB = est.poseB ? pose(est.poseB, s, cx, d, est, hy) : null, km = k01(est.mezcla ?? 0);
-  const P = pB ? { ...pB, ...(km < 0.5 ? pA : {}), m: [mix(pA.m[0], pB.m[0], km), mix(pA.m[1], pB.m[1], km)], lean: (pA.lean || 0) * (1 - km) + (pB.lean || 0) * km } : pA;
-  const lean = P.lean || 0;
+  const pA = pose(est.pose || 'reposo', s, cx, d, est, hy), pB = est.poseB ? pose(est.poseB, s, cx, d, est, hy) : null;
+  const km = Math.min(1.4, Math.max(-0.4, est.mezcla ?? 0)), curv = est.arco ?? 0.22;
+  const via = (a, b) => curv ? arco(a, b, km, cx, curv) : mix(a, b, km);
+  const P = pB ? { ...pB, ...(km < 0.5 ? pA : {}), m: [via(pA.m[0], pB.m[0]), via(pA.m[1], pB.m[1])], lean: (pA.lean || 0) * (1 - km) + (pB.lean || 0) * km } : pA;
+  const lean = (P.lean || 0) + (est.inclina || 0);
   c.translate(cx, SUELO); c.rotate(lean); c.translate(-cx, -SUELO);
   c.translate(0, -reb);
   const corta = ropa.tipo === 'tunica_corta' || ropa.tipo === 'armadura' || ropa.tipo === 'chaleco_obra' || ropa.tipo === 'bata';
-  const hombroY = 38.5 * s - (P.hombros || 0) * s + resp, bajo = (corta ? 79 : 90) * s;
+  const hombroY = 38.5 * s - (P.hombros || 0) * s + resp - acento * 0.8 * s, bajo = (corta ? 79 : 90) * s;
   // ── piernas (visibles bajo la túnica corta; si no, solo los zapatos asoman) ──
   const ciclo = P.ciclo, paso = ciclo !== undefined ? Math.sin(ciclo * Math.PI * 2) : 0, zancada = P.corre ? 7 : 4;
   const pie = i => [cx + (i ? 3.4 : -3.4) * s + (i ? -paso : paso) * zancada * s, SUELO - Math.max(0, (i ? -paso : paso)) * (P.corre ? 3 : 1.5) * s];
@@ -99,7 +107,7 @@ export function dibujarPersonaje(c, t, est = {}, w, h) {
     el(c, p[0] + 1.6 * s, p[1] - 0.6 * s, 3 * s, 1.6 * s); relleno(c, s, '#3A2A22', 1);
   }
   // ── cuerpo de vestuario (A con vuelo; el bajo se mece al caminar) ──
-  const vuelo = paso * 1.2 * s;
+  const vuelo = paso * 1.2 * s + inercia * 2.4 * s;
   const cuerpo = () => {
     c.beginPath(); c.moveTo(cx - 6.5 * s, hombroY);
     c.quadraticCurveTo(cx - 8.5 * s, hombroY + 2 * s, cx - 9.5 * s, hombroY + 10 * s);
@@ -140,10 +148,10 @@ export function dibujarPersonaje(c, t, est = {}, w, h) {
   // cuello del vestido
   el(c, cx, hombroY + 0.5 * s, 4 * s, 1.6 * s); relleno(c, s, ropa.ribete || ropa.color, 1);
   // ── cabeza ──
-  const g = est.giro || 0, fx = cx + g * 4 * s;
-  if (est.pelo === 'largo') { c.beginPath(); c.moveTo(cx - R * 1.05, hy - R * 0.2); c.quadraticCurveTo(cx - R * 1.25, hy + R * 1.1, cx - R * 0.6, hy + R * 1.35); c.lineTo(cx + R * 0.6, hy + R * 1.35); c.quadraticCurveTo(cx + R * 1.25, hy + R * 1.1, cx + R * 1.05, hy - R * 0.2); c.closePath(); relleno(c, s, est.colorPelo || '#5A3A28', 1.1); }
-  if (est.pelo === 'mono') { el(c, cx - g * 2 * s, hy - R * 1.02, 4.2 * s, 3.4 * s); relleno(c, s, est.colorPelo || '#2A2230', 1.1); }
-  if (est.pelo === 'coleta') { el(c, cx - g * 3 * s, hy - R * 0.95, 3.4 * s, 3 * s); relleno(c, s, est.colorPelo || '#2A2230', 1.1); }
+  const g = est.giro || 0, fx = cx + g * 4 * s, arrastre = -inercia * 1.6 * s;   // pelo y sombrero llegan tarde
+  if (est.pelo === 'largo') { c.beginPath(); c.moveTo(cx - R * 1.05, hy - R * 0.2); c.quadraticCurveTo(cx - R * 1.25 + arrastre, hy + R * 1.1, cx - R * 0.6 + arrastre, hy + R * 1.35); c.lineTo(cx + R * 0.6 + arrastre, hy + R * 1.35); c.quadraticCurveTo(cx + R * 1.25 + arrastre, hy + R * 1.1, cx + R * 1.05, hy - R * 0.2); c.closePath(); relleno(c, s, est.colorPelo || '#5A3A28', 1.1); }
+  if (est.pelo === 'mono') { el(c, cx - g * 2 * s + arrastre, hy - R * 1.02, 4.2 * s, 3.4 * s); relleno(c, s, est.colorPelo || '#2A2230', 1.1); }
+  if (est.pelo === 'coleta') { el(c, cx - g * 3 * s + arrastre, hy - R * 0.95, 3.4 * s, 3 * s); relleno(c, s, est.colorPelo || '#2A2230', 1.1); }
   el(c, cx, hy, R * 1.02, R * 0.96); relleno(c, s, piel, 1.4);
   if (est.luz) {   // media luna de sombra fría y borde cálido del lado de la luz
     const [lx, ly] = est.luz, n = Math.hypot(lx, ly) || 1, ux = lx / n, uy = ly / n;
@@ -159,7 +167,7 @@ export function dibujarPersonaje(c, t, est = {}, w, h) {
   cara_(c, s, fx, hy, R, cara, est, d, piel);
   if (est.gafas) { for (const sx of [-1, 1]) { el(c, fx + sx * 4.6 * s, hy + 0.4 * s, 3.4 * s, 3 * s); c.lineWidth = 0.9 * s; c.strokeStyle = TINTA; c.stroke(); c.fillStyle = 'rgba(200,230,255,0.18)'; c.fill(); }
     linea(c, [[fx - 1.2 * s, hy], [fx + 1.2 * s, hy]], 0.8 * s); }
-  sombrero(c, s, cx - g * 1.5 * s, hy, R, est);
+  sombrero(c, s, cx - g * 1.5 * s + arrastre * 0.6, hy, R, est);
   // ── brazos de delante ──
   if (P.frente) { if (est.objeto) est.objeto(c, s, (P.m[0][0] + P.m[1][0]) / 2, (P.m[0][1] + P.m[1][1]) / 2); brazo(0); }
   else if (est.objeto) est.objeto(c, s, P.m[1][0], P.m[1][1]);
@@ -205,8 +213,15 @@ function cara_(c, s, fx, hy, R, cara, est, d, piel) {
   // boca
   const boca = est.boca || { neutral: 'linea', feliz: 'sonrisa', firme: 'linea', sorpresa: 'o', risa: 'abierta', carcajada: 'abierta', enojo: 'triste', suspicaz: 'lado',
     miedo: 'ondas', dormido: 'o', orgullo: 'sonrisa', verguenza: 'ondas', triste: 'triste' }[cara] || 'linea';
-  const my = hy + 7.8 * s;
-  if (boca === 'linea') linea(c, [[fx - 2 * s, my], [fx + 2 * s, my]], 1.1 * s);
+  const my = hy + 7.8 * s, ha = est.boca ? 0 : (est.habla || 0);
+  if (ha > 0.02) {   // habla: la boca abre con la voz; conserva la intención de la cara (comisuras arriba si sonríe)
+    const sube = ['feliz', 'orgullo', 'risa', 'carcajada'].includes(cara) ? 0.9 : ['triste', 'enojo', 'miedo'].includes(cara) ? -0.6 : 0;
+    const an = (2.2 + 1.2 * ha) * s, al = (0.5 + 3.2 * ha) * s;
+    c.beginPath(); c.moveTo(fx - an, my - sube * s); c.quadraticCurveTo(fx, my - al * 0.35, fx + an, my - sube * s);
+    c.quadraticCurveTo(fx + an * 0.8, my + al, fx, my + al); c.quadraticCurveTo(fx - an * 0.8, my + al, fx - an, my - sube * s);
+    relleno(c, s, '#4A2028', 0.9);
+    if (ha > 0.45) { c.save(); c.clip(); el(c, fx, my + al * 0.95, an * 0.55, al * 0.35); c.fillStyle = '#D85A6A'; c.fill(); c.restore(); }
+  } else if (boca === 'linea') linea(c, [[fx - 2 * s, my], [fx + 2 * s, my]], 1.1 * s);
   else if (boca === 'lado') linea(c, [[fx - 1.2 * s, my + 0.3 * s], [fx + 2.6 * s, my - 0.6 * s]], 1.1 * s);
   else if (boca === 'sonrisa') { c.beginPath(); c.moveTo(fx - 2.6 * s, my - 0.4 * s); c.quadraticCurveTo(fx, my + 2.2 * s, fx + 2.6 * s, my - 0.4 * s); c.lineWidth = 1.1 * s; c.strokeStyle = TINTA; c.stroke(); }
   else if (boca === 'triste') { c.beginPath(); c.moveTo(fx - 2.4 * s, my + 1 * s); c.quadraticCurveTo(fx, my - 1.4 * s, fx + 2.4 * s, my + 1 * s); c.lineWidth = 1.1 * s; c.strokeStyle = TINTA; c.stroke(); }
