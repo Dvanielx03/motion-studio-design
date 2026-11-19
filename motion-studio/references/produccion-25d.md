@@ -236,6 +236,8 @@ Medido en los Shorts recientes de la referencia (Ricks Clips, 5 y 15 nov; `docs`
 
 **Cuellos de botella esperados** (confirmar con `bitacora.py`): construir escenarios y personajes nuevos (el trabajo de Claude), el render del completo (GPU) y las rondas de corrección. Mitigaciones: biblioteca reutilizable, caché por plano, vista antes de la muestra, QC automático antes del crítico.
 
+**Lotes:** para varios Shorts seguidos, `scripts/lote.py` encadena proyecto → audio → render → puerta → crítica → publicación, y `scripts/audio_video.py` hace toda la cadena de audio desde `video.json` (`lotes.md`).
+
 **Escalar a varios videos al día** solo si la bitácora lo demuestra: con una RTX 3050 de 6 GB, un completo de ~60 s a 11 s por segundo de video ocupa la GPU unos 11–12 min, y caben varios al día. El límite real suele ser el trabajo creativo y el costo de la suscripción. Cada video en una sesión nueva y corta, con el estado en archivos; Sonnet para lo mecánico (`costo-por-video`).
 
 **Nunca se automatiza:** la elección del tema, la aprobación del guion, la de la voz y la de la muestra, ni la publicación.

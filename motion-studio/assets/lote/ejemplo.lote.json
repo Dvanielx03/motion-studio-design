@@ -1,0 +1,67 @@
+{
+ "canal": "mi-canal",
+ "nombre": "Mi canal · lote de ejemplo",
+ "ritmo": "2 al día (12:00 y 19:00)",
+ "aprobacion": "Guiones en tandas de 2–3 + aprobación final de cada video (usuario)",
+ "nota_minima": 7.0,
+ "carpeta_videos": "../../videos",
+ "proyecto_base": "../../videos/2026-11-18_hotel-levantado/03-proyecto",
+ "referencia": {
+  "mp4": "../../biblioteca/referencias/ancient-jar/ancient-jar.mp4",
+  "palabras": "../../biblioteca/referencias/ancient-jar/comparacion/transcripcion_ref.json"
+ },
+ "determinismo_tolerancia": {
+  "px": 12,
+  "delta": 2,
+  "nota": "Residuo intermitente de rasterizado de lienzos en GPU: ≤ 12 px con Δ ≤ 2, invisible. Más que eso bloquea."
+ },
+ "pops_zonas": [
+  "0,0.6,1,0.25",
+  "0,0.1,1,0.2"
+ ],
+ "publicador": {
+  "cwd": "../../operaciones",
+  "pasos": [
+   [
+    "{py}",
+    "-m",
+    "centro",
+    "detectar"
+   ],
+   [
+    "{py}",
+    "-m",
+    "centro",
+    "validar",
+    "{ref}"
+   ],
+   [
+    "{py}",
+    "-m",
+    "centro",
+    "aprobar",
+    "{ref}"
+   ]
+  ],
+  "programar": [
+   "{py}",
+   "-m",
+   "centro",
+   "programar",
+   "--real",
+   "{ref}"
+  ]
+ },
+ "videos": [
+  {
+   "id": "DC-02",
+   "slug": "hotel-levantado",
+   "carpeta": "2026-11-18_hotel-levantado",
+   "fecha": "2026-11-19",
+   "hora": "12:00",
+   "titulo": "The Hotel That Rose With the Guests Inside",
+   "estado": "parrilla",
+   "portada_s": 2.0
+  }
+ ]
+}

@@ -291,6 +291,13 @@ Las herramientas compartidas viven en `~/.motion-studio`; puedes cambiar la ruta
 | [`motion-studio/scripts/preparar.py`](motion-studio/scripts/preparar.py) | Instalación y verificación de las herramientas (Playwright, Chromium, fuentes, numpy, Pillow, FFmpeg, GPU). |
 | [`motion-studio/scripts/referencia.py`](motion-studio/scripts/referencia.py) | Análisis de referencias locales con procedencia declarada, huella, metadatos y hojas temporizadas. |
 | [`motion-studio/scripts/recursos25d.py`](motion-studio/scripts/recursos25d.py) | Generación opcional de PNG con Blender, comprobación de GPU, caché y regeneración parcial. |
+| [`motion-studio/scripts/comparar.py`](motion-studio/scripts/comparar.py) | Mide un video contra la referencia de su nicho: movimiento, fluidez, cortes, color, sonoridad, golpes y fondo bajo la voz. |
+| [`motion-studio/scripts/envolvente.py`](motion-studio/scripts/envolvente.py) | Envolvente de la voz por fotograma para animar bocas (`kit/actuacion.js`). |
+| [`motion-studio/scripts/audio_video.py`](motion-studio/scripts/audio_video.py) | Cadena de audio de un Short desde `video.json`: voz dirigida con 2 tomas, ASR, cues por palabra, música por secciones, efectos y mezcla a −14 LUFS. |
+| [`motion-studio/scripts/lote.py`](motion-studio/scripts/lote.py) | Producción por lotes: proyecto, audio, render, puerta de calidad, crítica y publicación (`assets/lote/` trae las plantillas). |
+| [`motion-studio/references/produccion-25d.md`](motion-studio/references/produccion-25d.md) | Short narrado 2.5D en 10 etapas: nivel de referencia del nicho, fluidez, acabado realista y producción diaria. |
+| [`motion-studio/references/lotes.md`](motion-studio/references/lotes.md) | Lotes de Shorts: carpetas, flujo por video, puerta de calidad, `lote.json`, `video.json` y publicador. |
+| [`motion-studio/references/critica.md`](motion-studio/references/critica.md) y [`leccionero.md`](motion-studio/references/leccionero.md) | Crítico independiente con rúbrica de 7 criterios, y las lecciones comprobadas en producción. |
 | [`motion-studio/references/25d.md`](motion-studio/references/25d.md) | Producción 2.5D: referencias, voz medida, planos, recursos, sincronía y comprobaciones. |
 | [`motion-studio/references/paralelo.md`](motion-studio/references/paralelo.md) | Delegación nativa de Claude, propiedad de archivos, dependencias, integración y cola de render. |
 | [`motion-studio/assets/paralelo/CONTRATO.md`](motion-studio/assets/paralelo/CONTRATO.md) | Ficha adaptable para coordinar entregas, interfaces y autorizaciones del proyecto. |
@@ -300,7 +307,8 @@ Las herramientas compartidas viven en `~/.motion-studio`; puedes cambiar la ruta
 | [`motion-studio/references/edicion.md`](motion-studio/references/edicion.md) | Flujo del modo edición, operaciones de la línea de tiempo, comprobaciones y qué está pendiente. |
 | [`tests/edicion/`](tests/edicion/) | Material sintético con respuestas conocidas y prueba de principio a fin del modo edición, más la regresión del modo animación. |
 | [`motion-studio/references/kit.md`](motion-studio/references/kit.md) | Guía del kit. Explica:<ul><li>principios de animación y timing;</li><li>cómo diseñar y animar personajes;</li><li>gramática de planos y transiciones;</li><li>profundidad de campo, luz, partículas, escritura y textos en escena.</li></ul> |
-| [`tests/animacion/`](tests/animacion/) | Pruebas del kit, sincronía, secuencias y caché; regresiones de exportación SDR y generación opcional con Blender. |
+| [`tests/animacion/`](tests/animacion/) | Pruebas del kit, sincronía, secuencias y caché; regresiones de exportación SDR y generación opcional con Blender; director y actuación; lotes y audio sin red. |
+| [`docs/analysis/`](docs/analysis/) | Informes de observación: revisiones de producciones, investigación de referencias (Ricks Clips, make-short) y diagnósticos que originaron los cambios. |
 | [`motion-studio/references/gpu.md`](motion-studio/references/gpu.md) | Configuración y diagnóstico de GPU. |
 | [`motion-studio/references/rubricas.md`](motion-studio/references/rubricas.md) | Rúbricas del 1 al 10 por funcionalidad: criterios medibles, errores frecuentes, detección, corrección y comprobación automática. |
 | [`motion-studio/references/requisitos.md`](motion-studio/references/requisitos.md) | Requisitos por funcionalidad: sistemas, hardware, versiones, instalación, verificación, limitaciones y alternativas. |

@@ -2,6 +2,42 @@
 
 Las entradas describen cambios del repositorio, no versiones publicadas ni garantías de calidad audiovisual.
 
+## Sin versión publicada — 2026-11-19
+
+### Producción por lotes con puerta de calidad e informes de observación
+
+- **Necesidad:** el lote de Dani Clips (18–23 nov) se producía con dos herramientas que vivían fuera de la skill, en la carpeta de contenidos del usuario, con rutas de su equipo. Los informes de investigación y diagnóstico que justifican los cambios de la rama tampoco estaban en el repositorio. El usuario pidió llevar al repo todo el flujo de trabajo que usa con la skill.
+- **`scripts/audio_video.py` (nuevo):**
+  - toda la cadena de audio de un Short desde `video.json`: `grabar` (2 tomas por línea en ElevenLabs v3), `elegir`, `montar`, `transcribir`, `envolvente`, `cues`, `musica`, `sfx` y `mezcla` (−14 LUFS, ≤ −1,5 dBTP);
+  - anclas de tiempo por palabra o por línea;
+  - lo que ya existe no se vuelve a pagar.
+  - **Generalizada:**
+    - cliente propio de ElevenLabs;
+    - la clave sale de `ELEVENLABS_API_KEY` o de `credenciales/elevenlabs.env` hacia arriba, y nunca se imprime;
+    - la voz se exige en `video.json`, sin valor por defecto;
+    - el idioma del ASR es configurable;
+    - el Python sale de `MOTION_STUDIO_PY` o del `.venv` más cercano.
+  - **Comprobado:** con las tomas del hotel reproduce su `tiempos_voz.json` (12 líneas, 0,0 s de diferencia) y sus 43 efectos al mismo instante.
+- **`scripts/lote.py` (nuevo):**
+  - órdenes `estado`, `nuevo`, `audio`, `render`, `puerta`, `critica` y `publicar`;
+  - la **puerta** junta `auditar`, `--determinismo` (con tolerancia documentada en `lote.json`), `qc_escena`, `verificar` y `pops`, que bloquean; `ritmo` y `comparar` son informativos; la crítica independiente debe dar ≥ `nota_minima`;
+  - `publicar` escribe `publicar.json` y solo lanza el publicador que declare `lote.json`;
+  - nada se publica sin la puerta en PASA y las palabras del usuario.
+  - **Generalizado:** rutas relativas a `lote.json` (`carpeta_videos`, `proyecto_base`, `referencia`), zonas de `pops` y un publicador configurable (en el ejemplo, el centro de publicación del usuario).
+- **Plantillas:** `assets/lote/ejemplo.video.json` (el hotel en datos) y `assets/lote/ejemplo.lote.json`.
+- **Guías:**
+  - `references/lotes.md` (nueva): carpetas, flujo por video, puerta, `lote.json`, `video.json` y publicador;
+  - una línea en `SKILL.md` y en `produccion-25d.md`;
+  - la tabla de estructura del `README.md` completa con las herramientas del 18 nov (`comparar.py`, `envolvente.py`, `produccion-25d.md`, `critica.md` y `leccionero.md`).
+- **Informes en `docs/analysis/`:**
+  - investigación de Ricks Clips con desglose por marcas de tiempo;
+  - diagnóstico de nuestras producciones 2.5D;
+  - análisis técnico de make-short;
+  - comparativa y audiencia de «The Ancient Jar That Warned an Empire».
+  - Son copias de los informes del 18 nov, con una nota de procedencia y sin datos privados.
+- **Pruebas:** `tests/animacion/lote_audio_test.py`, con 7 pruebas sin red (anclas, cues, voz obligatoria, clave, estado y rutas, crítica, publicar sin puerta y publicador con una orden falsa). Siguen pasando las de director y actuación (77), encuadre, kit, secuencia y producción.
+- **Sin cambiar:** las herramientas del proyecto de contenidos siguen como estaban; las de la skill son la versión reutilizable.
+
 ## Sin versión publicada — 2026-11-18
 
 ### Acabado 3D realista estilizado, vestuario de época y anclas por ocurrencia
