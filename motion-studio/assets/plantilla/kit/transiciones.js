@@ -22,9 +22,11 @@
 //                todo); op.desenfoque = px de blur inicial de B (por defecto el 1,2 % del alto)
 //
 // Duraciones de referencia: corte 0; whip 0.25–0.4 s; empuje y barrido 0.4–0.6 s; iris 0.5–0.8 s; zoomAtraves 0.4–0.6 s;
-// parpados 1.2–2 s.
+// parpados 1.2–2 s. Sin `dur`, una transición dura DUR_TRANSICION (0,4 s); un corte siempre dura 0. dibujar() y
+// montaje() usan la misma regla (tr.duracion(op)); publícala también en window.__info.planos como salidaDur.
 
 function crearTransiciones(W, H) {
+  const DUR_TRANSICION = 0.4;
   const lienzo = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
   const A = lienzo(), B = lienzo();
 
@@ -39,8 +41,11 @@ function crearTransiciones(W, H) {
     ctx.globalAlpha = 1; ctx.drawImage(img, x, y);
   }
 
+  // Duración efectiva de una transición (s): 0 si es un corte (o no hay tipo); si no, op.dur o DUR_TRANSICION.
+  const duracion = op => (!op || (op.tipo ?? 'corte') === 'corte') ? 0 : (op.dur ?? DUR_TRANSICION);
+
   function dibujar(ctx, t, op, planoA, planoB) {
-    const { inicio, dur = 0.4, tipo = 'corte', dir = 1 } = op;
+    const { inicio, tipo = 'corte', dir = 1 } = op, dur = duracion(op);
     if (tipo === 'corte' || t < inicio) { (t < inicio ? planoA : planoB)(ctx, t); return; }
     if (t >= inicio + dur) { planoB(ctx, t); return; }
     const k = prog(t, inicio, inicio + dur);
@@ -103,17 +108,18 @@ function crearTransiciones(W, H) {
     ctx.restore();
   }
 
-  // Encadena planos: lista = [{fin, plano, salida?: {tipo, dur, ...}}, ...]. La salida de cada plano empieza en su `fin`.
+  // Encadena planos: lista = [{fin, plano, salida?: {tipo, dur, ...}}, ...]. La salida de cada plano empieza en su `fin`
+  // y dura lo mismo que en dibujar() (sin `dur`, DUR_TRANSICION; un corte, 0).
   // Es el montaje completo en una llamada:  tr.montaje(ctx, t, [{fin: 3, plano: p1, salida: {tipo: 'whip'}}, {fin: 6, plano: p2}])
   function montaje(ctx, t, lista) {
-    let i = lista.findIndex(p => t < p.fin + (p.salida?.dur ?? 0));
+    let i = lista.findIndex(p => t < p.fin + duracion(p.salida));
     if (i < 0) i = lista.length - 1;
     const p = lista[i], sig = lista[i + 1];
     if (sig && p.salida && t >= p.fin) dibujar(ctx, t, { ...p.salida, inicio: p.fin }, p.plano, sig.plano);
     else p.plano(ctx, t);
   }
 
-  return { dibujar, montaje };
+  return { dibujar, montaje, duracion };
 }
 
 // Montaje que se acelera (o se frena): n planos desde `inicio`, cuya duración pasa de d0 a d1 de forma geométrica.

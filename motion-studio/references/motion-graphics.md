@@ -34,6 +34,57 @@ Estas son recomendaciones adaptadas para Motion Studio, no garantías de efectiv
 
 No traslades tiempos de microinteracciones de interfaces directamente a un video. Los principios de foco y continuidad pueden servir, pero la lectura, el sonido y la intención de cada pieza determinan su duración.
 
+## Del storyboard a la coreografía gráfica
+
+Usa la ficha de plano existente, sin otro cuestionario ni documento obligatorio. Describe qué relación cambia y qué elemento conecta con la siguiente composición. Separa el material mostrado (por ejemplo, siete obras de estilos distintos en un showreel) del sistema gráfico que lo organiza. No rediseñes las obras para uniformarlas.
+
+| Decisión en la ficha | Ejemplo | Error que resolver antes de animar |
+| --- | --- | --- |
+| Estado inicial → transformación → resultado | Una celda conserva su imagen y se abre hasta ser el siguiente plano. | Pantallas completas que solo entran y salen. |
+| Jerarquía temporal | Primero la obra, después la palabra; la etiqueta técnica queda subordinada. | Varias capas reclaman atención durante el mensaje principal. |
+| Entrada → lectura → salida | Las letras se ensamblan, la frase queda completa y luego enlaza con otra forma. | Contar como lectura la aparición parcial o dejar que el texto derive hasta recortarse. |
+| Enlace y dirección | La ventana de una imagen conserva posición y se convierte en máscara. | Repetir zoom, flash o barrido sin relación con la composición. |
+| Acento audiovisual | Un evento compartido fija el fotograma del sello y el efecto. | Imagen y audio mantienen copias distintas de los mismos tiempos. |
+
+Una pausa de lectura puede ser quieta mientras el material continúa. La variedad puede venir de escala, espacio, organización o transformación, sin una cuota de efectos. Anticipación, overshoot y squash dependen del peso y la identidad de la pieza.
+
+## Tipografía, máscaras e integración
+
+- Mide la frase completa con la fuente cargada. Protege su encuadre durante la lectura **después** de cámara, escala, giro y recorte. Una entrada intencional fuera de cuadro no equivale a recortar el mensaje asentado. El margen y el tiempo de lectura se eligen para la pieza, no son constantes universales.
+- Para una línea, `kit/grafica.js` ofrece `crearTitularGrafico`: ajusta ancho, exige el tiempo de lectura solicitado y devuelve poses sin estado. El alto, los glifos con salientes, bordes y efectos posteriores requieren revisión; no dibuja, decide colores ni garantiza contraste. Para varias líneas, mide y compón cada una; no reduzcas texto ilimitadamente hasta hacerlo ilegible.
+- Una máscara de video en las letras puede perder legibilidad aunque sus dimensiones sean correctas. Revisa fondos claros, oscuros y detallados; conserva una silueta legible mediante relleno, contorno o separación local según la dirección elegida. Oscurecer toda la obra no es la única solución.
+- Decide cómo encuadrar el material: contener, recortar con foco o deformar deliberadamente. Verifica rostros, interfaces y textos quemados con el recorte final. Distingue resolución de entrega, resolución del recurso y cadencia: exportar a 60 fps no añade poses a un clip de 30 fps.
+- Las etiquetas técnicas pueden mostrar proceso si el público lo necesita. No confundas un `seek(t)` o nombre de PNG deliberado con un fallo del render. Una firma o contacto aún sin resolver queda pendiente; no inventes la identidad para cerrar la entrega.
+
+Después de cargar fuentes, `lib.js` y `kit/grafica.js`:
+
+```js
+const { texto, medir } = crearTexto(ctx);
+const titular = crearTitularGrafico({
+  texto: 'CADA HISTORIA', inicio: 1, fin: 4, ancho: W, y: H / 2,
+  medir, fuente: px => `${px}px Titular`, margen: W * 0.08,
+  tamanoMax: 220, tamanoMin: 72, entrada: 0.35, salida: 0.25, lecturaMin: 1,
+});
+// Dentro de seek(t), con el contexto restablecido. Valores del ejemplo, no estándar universal.
+const p = titular.evaluar(t);
+ctx.save(); ctx.globalAlpha = p.alfa;
+texto(p.texto, p.fuente, '#F3F1EC', p.x, p.y);
+ctx.restore();
+```
+
+## Revisión específica y comparación justa
+
+1. Prueba un tramo con la dificultad real: frase completa, transformación máxima, enlace y sonido. Conserva recursos, intervalo, resolución, fps y perfil; deja el audio idéntico si solo corriges imagen. Usa una copia aislada y registra versión, huellas y alcance autorizado.
+2. Ejecuta auditoría, determinismo y controles técnicos existentes. El helper rechaza geometría, tiempos o mediciones inválidas; **no detecta** colisiones con otras capas, contraste, mala dirección o pérdidas de foco. `ritmo.py` tampoco los certifica.
+3. Inspecciona entrada, lectura, salida y ambos lados del enlace, también a tamaño de consumo. Registra recortes, oclusión, cambios de contraste, aparición incompleta y competencia entre elementos. El muestreo temporal localiza defectos; no demuestra toda la fluidez.
+4. Reproduce y escucha la muestra cuando sea posible. Distingue sincronización técnica por eventos de sincronía percibida. No renormalices el fragmento para hacerlo más impactante: su LUFS puede diferir del programa completo. Si `verificar.py` aplica el objetivo del completo a una muestra dinámica, registra el fallo, compara con el mismo intervalo original y verifica el programa por separado; no declares que todo pasó. Lo no observado queda pendiente.
+
+Puntúa de 1 a 10, con evidencia y la escala de `rubricas.md`: dirección de arte, composición, animación, tipografía cinética, transiciones, ritmo audiovisual, creatividad, calidad técnica e integración. Un 9–10 requiere resolver errores críticos y observar los aspectos temporales/sonoros aplicables en reproducción. No extrapoles la nota de la muestra al completo ni subas la nota por añadir movimiento.
+
+Este flujo es específico de Motion Graphics. Si un principio merece incorporarse a otros estilos, propón ese cambio aparte con su evidencia; no modifiques sus reglas por esta guía.
+
+Fundamento técnico: [TextMetrics](https://developer.mozilla.org/en-US/docs/Web/API/TextMetrics) y [composición Canvas](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation). Son APIs, no validaciones de calidad artística.
+
 ## Por qué se añadió preproducción
 
 | Límite del flujo anterior | Decisión adoptada |

@@ -5,6 +5,9 @@
 //   node render.mjs --sheet               un fotograma por pulso    -> review/beats/ (luego: python sheet.py)
 //   node render.mjs --determinismo        comprueba que un fotograma depende solo de t (ver abajo)  [--t=0,1.5,3]
 //   node render.mjs --ritmo               vista a 10 fps del video entero -> review/ritmo/vista.mp4 y `python ritmo.py`
+//   node render.mjs --vista               previsualización rápida del video entero (animatic): escala y fps de
+//                                         motion.config.json → vista (0,5 y 15 por defecto), NVENC si hay (si falla,
+//                                         se repite con libx264) -> review/vista/
 //   node render.mjs --borrador            video completo, calidad de borrador (crf 16)
 //   node render.mjs --final               video completo, calidad final (crf 12, preset slow)
 //
@@ -12,6 +15,12 @@
 //           --pagina=kit/ejemplo.html   renderiza otra página del proyecto en lugar de index.html
 //           --sin-audio               prueba visual explícitamente muda
 // La configuración vive en motion.config.json (resolución, fps, GPU, calidad, salida).
+// --prueba, --vista y los completos reparten el trabajo entre `workers` navegadores.
+// Caché por plano: con motion.config.json → dependencias y window.__info.planos, un cambio en un escenario solo rehace
+// los segmentos de 5 s donde aparece (ver cache.mjs). Cada render se anota en review/bitacora.jsonl y en la bitácora
+// global de las herramientas compartidas (~/.motion-studio/bitacora.jsonl): tiempos por etapa y cuellos de botella.
+// La página puede leer ?vista=<escala> para dibujar a menor tamaño (y sin supermuestreo); si no lo admite,
+// la vista se captura a tamaño completo y se reduce con FFmpeg.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -20,7 +29,7 @@ import os from 'node:os';
 import { createRequire } from 'node:module';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { huellaProyecto } from './cache.mjs';
+import { huellaProyecto, huellasPorPlano, claveSegmento } from './cache.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const arg = k => { const a = process.argv.find(x => x === '--' + k || x.startsWith('--' + k + '=')); return a ? (a.split('=')[1] ?? true) : null; };
@@ -33,15 +42,26 @@ const DEFECTO = {
   salida: { carpeta: 'exportaciones', nombre: 'video' },
   workers: 6,
   revision: { desfase: 0.2 },
+  vista: { escala: 0.5, fps: 15, calidad: 30 },
 };
+const leerConfigCruda = () => JSON.parse(fs.readFileSync(path.join(root, 'motion.config.json'), 'utf8').replace(/^\uFEFF/, ''));
 function cargarConfig() {
-  const u = JSON.parse(fs.readFileSync(path.join(root, 'motion.config.json'), 'utf8'));
+  const u = leerConfigCruda();
   const c = {};
   for (const k of Object.keys(DEFECTO)) {
     c[k] = typeof DEFECTO[k] === 'object' ? { ...DEFECTO[k], ...(u[k] || {}) } : (u[k] ?? DEFECTO[k]);
   }
   c.codificacion = { borrador: { ...DEFECTO.codificacion.borrador, ...(u.codificacion?.borrador || {}) },
                      final: { ...DEFECTO.codificacion.final, ...(u.codificacion?.final || {}) } };
+  // Índices de fotograma enteros: con fps no entero (29,97) los segmentos de 5 s caerían fuera de la rejilla y la caché
+  // no se reutilizaría nunca; con lados impares yuv420p no codifica.
+  const v = c.video; for (const k of ['ancho', 'alto', 'fps', 'duracion']) v[k] = Number(v[k]);
+  const malo = [
+    !(Number.isInteger(v.fps) && v.fps > 0) && `video.fps = ${v.fps} (entero positivo; 29,97 o 23,976 no se admiten)`,
+    !(Number.isFinite(v.duracion) && v.duracion > 0) && `video.duracion = ${v.duracion} (segundos, mayor que 0)`,
+    ...['ancho', 'alto'].filter(k => !(Number.isInteger(v[k]) && v[k] > 0 && v[k] % 2 === 0)).map(k => `video.${k} = ${v[k]} (entero par positivo)`),
+  ].filter(Boolean);
+  if (malo.length) { console.error(`motion.config.json no es válido: ${malo.join('; ')}`); process.exit(1); }
   return c;
 }
 const cfg = cargarConfig();
@@ -131,22 +151,154 @@ async function comprobarGpu() {
   else if (cfg.gpu.coincidir && !new RegExp(cfg.gpu.coincidir, 'i').test(r)) console.warn(`AVISO: se esperaba una GPU que coincida con «${cfg.gpu.coincidir}»${cfg.gpu.nombre ? ` (${cfg.gpu.nombre})` : ''} y se usa otra.`);
 }
 
-async function abrirPagina() {
+// escala < 1 (modo --vista): la página recibe ?vista=<escala>; si publica window.__vista === escala, se captura a ese
+// tamaño; si no, se captura completa y FFmpeg reduce (page.__reducir = true).
+async function abrirPagina(escala = 1) {
   const b = await lanzar();
-  const page = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
-  page.on('pageerror', e => console.error('PAGEERROR', e.message));
-  page.on('console', m => { if (m.type() === 'error') console.error('CONSOLE', m.text()); });
-  await page.goto(url);
-  await page.waitForFunction(() => window.ready || window.loadError, null, { timeout: 60000 });
-  const err = await page.evaluate(() => window.loadError);
-  if (err) throw new Error(err);
-  return page;
+  try {
+    const page = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+    page.on('pageerror', e => console.error('PAGEERROR', e.message));
+    page.on('console', m => { if (m.type() === 'error') console.error('CONSOLE', m.text()); });
+    await page.goto(escala < 1 ? url + (url.includes('?') ? '&' : '?') + `vista=${escala}` : url);
+    await page.waitForFunction(() => window.ready || window.loadError, null, { timeout: 120000 });
+    const err = await page.evaluate(() => window.loadError);
+    if (err) throw new Error(err);
+    page.__reducir = false;
+    // Los cortes planificados quedan en review/planos.json: pops.py y las revisiones los leen sin abrir la página.
+    if (!abrirPagina.planos) {
+      abrirPagina.planos = await page.evaluate(() => window.__info?.planos || null);
+      if (abrirPagina.planos) {
+        fs.mkdirSync(path.join(root, 'review'), { recursive: true });
+        fs.writeFileSync(path.join(root, 'review', 'planos.json'), JSON.stringify(abrirPagina.planos));
+      }
+    }
+    if (escala < 1) {
+      const admite = await page.evaluate(e => window.__vista === e, escala);
+      if (admite) await page.setViewportSize({ width: Math.round(W * escala), height: Math.round(H * escala) });
+      else page.__reducir = true;
+    }
+    return page;
+  } catch (e) {
+    // Quien llama no recibe la página y no podría cerrarlo: el navegador (y su memoria de video) se libera aquí.
+    const i = browsers.indexOf(b); if (i >= 0) browsers.splice(i, 1);
+    await b.close().catch(() => {});
+    throw e;
+  }
 }
 async function foto(page, t, dest, type = 'png') {
   await page.evaluate(t => window.seek(t), t);
   return page.screenshot({ path: dest, type, quality: type === 'jpeg' ? 92 : undefined, animations: 'disabled', caret: 'hide' });
 }
 const trabajadores = () => +(arg('workers') || cfg.workers);
+
+// ── NVENC (codificador por GPU de NVIDIA): solo para la vista rápida; las entregas siguen en libx264 ──
+let _nvenc = null;
+function tieneNvenc() {
+  if (_nvenc !== null) return _nvenc;
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=256x256:d=0.2',
+    '-c:v', 'h264_nvenc', '-f', 'null', '-'], { encoding: 'utf8' });
+  return (_nvenc = r.status === 0);
+}
+
+// Captura los fotogramas [a, b) a `fpsTramo` y los codifica en `archivo` con `codec` (argumentos de salida de FFmpeg).
+// Devuelve el número de fotogramas. Si la página no admite la vista reducida, `filtro` reduce aquí. Si otro tramo
+// falla (`cancelar.hecho`), este se detiene en el siguiente fotograma.
+async function codificarTramo(page, a, b, fpsTramo, archivo, codec, filtro = null, cancelar = null) {
+  const ff = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(fpsTramo), '-i', '-',
+    ...(filtro ? ['-vf', filtro] : []), ...codec, '-r', String(fpsTramo), archivo], { stdio: ['pipe', 'inherit', 'inherit'] });
+  let errorFF;
+  const finFF = new Promise(resolve => { ff.once('error', e => { errorFF = e; resolve(-1); }); ff.once('close', resolve); });
+  ff.stdin.on('error', e => { errorFF = e; });
+  const fallo = codigo => new Error(`FFmpeg falló en ${path.basename(archivo)} (código ${codigo ?? ff.exitCode}; ${errorFF?.message || 'salida prematura'})`);
+  try {
+    for (let i = a; i < b; i++) {
+      if (cancelar?.hecho) throw new Error(`${path.basename(archivo)} cancelado: falló otro tramo`);
+      const buf = await foto(page, i / fpsTramo, undefined, 'png');
+      if (errorFF || ff.exitCode !== null) throw fallo();
+      if (!ff.stdin.write(buf)) await Promise.race([new Promise(r => ff.stdin.once('drain', r)), finFF.then(c => { throw fallo(c); })]);
+    }
+    ff.stdin.end();
+    const codigo = await finFF;
+    if (codigo !== 0 || errorFF) throw fallo(codigo);
+  } catch (e) { ff.stdin.destroy(); ff.kill(); await finFF; throw e; }
+  return b - a;
+}
+
+const borrar = ruta => { try { fs.rmSync(ruta, { recursive: true, force: true }); } catch {} };
+// Parciales «*.part.mp4» de más de 1 h en `dir`: restos de ejecuciones interrumpidas (los de una en curso son recientes).
+function podarParciales(dir) {
+  try { for (const f of fs.readdirSync(dir)) if (f.endsWith('.part.mp4') && Date.now() - fs.statSync(path.join(dir, f)).mtimeMs > 3600e3) borrar(path.join(dir, f)); } catch {}
+}
+
+// Reparte [desde, hasta) en tramos contiguos entre `n` navegadores, dentro de una carpeta propia de esta ejecución en
+// `base` (dos ejecuciones a la vez no se pisan los tramos). Devuelve { lista, carpeta }; quien llama borra `carpeta`.
+// Si un tramo falla, cancela los demás, espera a que suelten sus archivos, borra la carpeta y lanza el primer error.
+async function renderParalelo(desde, hasta, fpsTramo, base, codec, escala = 1, filtro = null) {
+  fs.mkdirSync(base, { recursive: true });
+  // Restos de ejecuciones interrumpidas: la carpeta fija de versiones anteriores y tramos de hace más de 12 h.
+  try { for (const d of fs.readdirSync(base)) if (d === '_tramos' || (d.startsWith('_tramos-') && Date.now() - fs.statSync(path.join(base, d)).mtimeMs > 12 * 3600e3)) borrar(path.join(base, d)); } catch {}
+  const carpeta = fs.mkdtempSync(path.join(base, '_tramos-'));
+  const total = hasta - desde, n = Math.max(1, Math.min(trabajadores(), Math.ceil(total / 30)));
+  const cortes = Array.from({ length: n + 1 }, (_, k) => desde + Math.round(total * k / n));
+  const archivos = cortes.slice(0, -1).map((_, k) => path.join(carpeta, `t${String(k).padStart(3, '0')}.mp4`));
+  const cancelar = { hecho: false, error: null };
+  await Promise.allSettled(archivos.map(async (archivo, k) => {
+    let page;
+    try { page = await abrirPagina(escala); await codificarTramo(page, cortes[k], cortes[k + 1], fpsTramo, archivo, codec, page.__reducir ? filtro : null, cancelar); }
+    catch (e) { if (!cancelar.hecho) Object.assign(cancelar, { hecho: true, error: e }); }
+    // Se cierra el navegador entero (no solo la página): libera memoria de vídeo antes de un posible reintento.
+    finally { if (page) await page.context().browser().close().catch(() => {}); }
+  }));
+  if (cancelar.error) { borrar(carpeta); throw cancelar.error; }
+  const lista = path.join(carpeta, 'lista.txt');
+  fs.writeFileSync(lista, archivos.map(f => `file '${path.basename(f)}'`).join('\n'));
+  return { lista, carpeta };
+}
+
+// Fotogramas (paquetes) de video de un MP4, sin decodificarlo.
+function paquetesVideo(archivo) {
+  const r = spawnSync('ffprobe', ['-v', 'error', '-count_packets', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', archivo], { encoding: 'utf8' });
+  return +String(r.stdout || '').trim();
+}
+
+// Une la imagen ya codificada (concat de `lista`, sin recomprimir) con la mezcla en `destino`. Sin -shortest: el audio
+// se rellena con silencio o se recorta a la duración exacta del video, y se comprueba que no se perdió ningún fotograma.
+function unir(lista, audio, fotogramas, fps, kbps, destino) {
+  const dur = String(fotogramas / fps);
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', lista,
+    ...(audio ? ['-i', audio, '-filter_complex', `[1:a]apad=whole_dur=${dur}[a]`, '-map', '0:v:0', '-map', '[a]',
+      '-c:v', 'copy', '-c:a', 'aac', '-b:a', kbps, '-t', dur] : ['-map', '0:v:0', '-c:v', 'copy']),
+    '-movflags', '+faststart', destino], { stdio: 'inherit' });
+  if (r.error || r.status !== 0) throw new Error(`FFmpeg falló al unir ${path.basename(destino)}`);
+  const n = paquetesVideo(destino);
+  if (n !== fotogramas) throw new Error(`${path.basename(destino)} tiene ${n} fotogramas y se esperaban ${fotogramas}`);
+}
+
+// Sustituye `destino` por el archivo terminado `parcial`. Si no se puede (abierto en un reproductor), el resultado se
+// conserva como «<destino sin .mp4>.conservado-<pid>.mp4»: sin «.part», la poda de parciales no lo borra. El error
+// empieza siempre por «no pude reemplazar» (quien llama no borra entonces el parcial) y dice dónde quedó.
+function reemplazar(parcial, destino) {
+  try { fs.renameSync(parcial, destino); return; }
+  catch (e) {
+    const motivo = `no pude reemplazar ${destino} (${e.code || e.message}; ¿está abierto en un reproductor?)`;
+    const conservado = destino.replace(/\.mp4$/i, '') + `.conservado-${process.pid}.mp4`;
+    try { fs.renameSync(parcial, conservado); }
+    catch { throw new Error(`${motivo}. El resultado quedó en ${parcial} (renómbralo: los «.part.mp4» de review/ se podan pasada 1 h)`); }
+    throw new Error(`${motivo}. El resultado quedó en ${conservado} (no se poda: bórralo o renómbralo cuando cierres el reproductor)`);
+  }
+}
+
+// ── bitácora de tiempos: proyecto y global ──
+// Clave del proyecto = nombre de la carpeta del VIDEO, la misma que usa scripts/bitacora.py: si render.mjs vive en una
+// carpeta «NN-…» (p. ej., videos/2026-11-17_x/03-proyecto), la de su carpeta padre; si no, la de la propia carpeta.
+const PROYECTO = /^\d\d-/.test(path.basename(root)) ? path.basename(path.dirname(root)) : path.basename(root);
+function registrar(datos) {
+  const fila = JSON.stringify({ fecha: new Date().toISOString(), proyecto: PROYECTO,
+    gpu: modoGpu, workers: trabajadores(), ...datos }) + '\n';
+  try { fs.mkdirSync(path.join(root, 'review'), { recursive: true }); fs.appendFileSync(path.join(root, 'review', 'bitacora.jsonl'), fila); } catch {}
+  try { fs.mkdirSync(HERRAMIENTAS, { recursive: true }); fs.appendFileSync(path.join(HERRAMIENTAS, 'bitacora.jsonl'), fila); } catch {}
+}
+const INICIO = Date.now();
 
 // ── sonoridad: la regla es -14 LUFS ────────────────────────────────────────
 function lufs(archivo) {
@@ -156,8 +308,8 @@ function lufs(archivo) {
 }
 
 try {
-  if (!arg('frames') && !rangoPrueba && !arg('sheet') && !arg('determinismo') && !arg('ritmo') && !arg('borrador') && !arg('final')) {
-    console.log('Uso: node render.mjs --frames=t1,t2 | --prueba=inicio,fin | --sheet | --determinismo | --ritmo | --borrador | --final   [--workers=N] [--gpu=modo]');
+  if (!arg('frames') && !rangoPrueba && !arg('vista') && !arg('sheet') && !arg('determinismo') && !arg('ritmo') && !arg('borrador') && !arg('final')) {
+    console.log('Uso: node render.mjs --frames=t1,t2 | --prueba=inicio,fin | --vista | --sheet | --determinismo | --ritmo | --borrador | --final   [--workers=N] [--gpu=modo]');
   } else {
     await comprobarGpu();
     if (arg('frames')) {
@@ -167,30 +319,23 @@ try {
       console.log('frames ->', out);
     } else if (rangoPrueba) {
       const [desde, hasta] = rangoPrueba;
-      const out = path.join(root, 'review', 'pruebas'); fs.mkdirSync(out, { recursive: true });
-      const salida = path.join(out, `movimiento-${desde}-${hasta}.mp4`), parcial = salida + '.part.mp4';
-      const videoParcial = salida + '.video.part.mp4';
+      const out = path.join(root, 'review', 'pruebas'); fs.mkdirSync(out, { recursive: true }); podarParciales(out);
+      // Los parciales llevan el pid: dos pruebas del mismo intervalo a la vez no se pisan. Un intento fallido borra los
+      // suyos; los de un proceso que murió a medias los poda podarParciales() pasada 1 h.
+      const salida = path.join(out, `movimiento-${desde}-${hasta}.mp4`), parcial = `${salida}.${process.pid}.part.mp4`;
+      const videoParcial = `${salida}.${process.pid}.video.part.mp4`;
       const audio = path.join(root, 'audio', 'final.wav');
       const hayAudio = !arg('sin-audio') && fs.existsSync(audio);
       const segundos = (hasta - desde) / FPS;
       if (!hayAudio) console.warn('AVISO: prueba visual sin audio; la sincronización y la mezcla quedan pendientes.');
-      const page = await abrirPagina();
-      const ff = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png',
-        '-framerate', String(FPS), '-i', '-', '-an',
-        '-c:v', 'libx264', '-preset', cfg.codificacion.final.preset, '-crf', String(cfg.codificacion.final.crf),
-        ...COLOR_SDR, '-pix_fmt', 'yuv420p', '-t', String(segundos), '-movflags', '+faststart', videoParcial], { stdio: ['pipe', 'inherit', 'inherit'] });
-      const terminado = new Promise((resolve, reject) => {
-        ff.once('error', reject);
-        ff.once('close', code => code === 0 ? resolve() : reject(new Error(`FFmpeg fallo en la prueba (${code})`)));
-      });
-      terminado.catch(() => {});
-      ff.stdin.on('error', () => {});
+      // Tramos en paralelo (uno por navegador) con la calidad final; se concatenan sin recomprimir.
+      const { lista, carpeta } = await renderParalelo(desde, hasta, FPS, out,
+        ['-an', '-c:v', 'libx264', '-preset', cfg.codificacion.final.preset, '-crf', String(cfg.codificacion.final.crf),
+          ...COLOR_SDR, '-pix_fmt', 'yuv420p']);
       try {
-        for (let i = desde; i < hasta; i++) {
-          const buf = await foto(page, i / FPS);
-          await new Promise((resolve, reject) => ff.stdin.write(buf, err => err ? reject(err) : resolve()));
-        }
-        ff.stdin.end(); await terminado;
+        const cat = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', lista,
+          '-c', 'copy', '-movflags', '+faststart', videoParcial], { stdio: 'inherit' });
+        if (cat.error || cat.status !== 0) throw new Error('FFmpeg falló al unir los tramos de la prueba');
         // La captura entrega solo imagen. Con el archivo cerrado se une la mezcla;
         // el video ya codificado se copia sin una segunda compresión.
         if (hayAudio) {
@@ -198,15 +343,49 @@ try {
             '-filter_complex', `[1:a]atrim=start=${desde / FPS}:duration=${segundos},asetpts=PTS-STARTPTS,apad=whole_dur=${segundos}[a]`,
             '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '320k',
             '-t', String(segundos), '-movflags', '+faststart', parcial], { stdio: 'inherit' });
-          if (mux.error || mux.status !== 0) throw new Error('FFmpeg fallo al unir la mezcla de la prueba');
-          fs.renameSync(parcial, salida); fs.unlinkSync(videoParcial);
-        } else fs.renameSync(videoParcial, salida);
-        console.log(`OK prueba ${hayAudio ? 'con mezcla' : 'sin audio'}: ${salida} · ${segundos} s · ${hasta - desde} fotogramas · CRF ${cfg.codificacion.final.crf} / ${cfg.codificacion.final.preset}`);
-      } finally {
-        if (ff.exitCode === null) { ff.stdin.destroy(); ff.kill(); }
-        await terminado.catch(() => {});
-        await page.close();
+          if (mux.error || mux.status !== 0) throw new Error('FFmpeg falló al unir la mezcla de la prueba');
+          borrar(videoParcial);
+        }
+        // Como unir(): ningún fotograma perdido en la unión de tramos ni en la mezcla (atrim/apad/-t).
+        const hecho = hayAudio ? parcial : videoParcial, nf = paquetesVideo(hecho);
+        if (nf !== hasta - desde) throw new Error(`${path.basename(salida)} tiene ${nf} fotogramas y se esperaban ${hasta - desde}`);
+        reemplazar(hecho, salida);
+      } catch (e) {
+        // Un intento fallido no deja parciales. Si lo que falló fue el renombrado final (salida abierta en un reproductor),
+        // el resultado se conserva aparte («.conservado-<pid>.mp4», fuera de la poda): el mensaje dice dónde quedó.
+        if (!/no pude reemplazar/.test(e.message)) { borrar(parcial); borrar(videoParcial); }
+        throw e;
+      } finally { borrar(carpeta); }
+      const seg = (Date.now() - INICIO) / 1000;
+      console.log(`OK prueba ${hayAudio ? 'con mezcla' : 'sin audio'}: ${salida} · ${segundos} s · ${hasta - desde} fotogramas · CRF ${cfg.codificacion.final.crf} / ${cfg.codificacion.final.preset} · ${seg.toFixed(0)} s (${(seg / segundos).toFixed(1)} s por segundo de video)`);
+      registrar({ modo: 'prueba', rango: [desde / FPS, hasta / FPS], segundos: +seg.toFixed(1), fotogramas: hasta - desde });
+    } else if (arg('vista')) {
+      // Animatic técnico: todo el video, menor tamaño y fps, codificado por GPU si hay NVENC. Sirve para revisar
+      // tiempos, encuadres, lectura y sincronía antes de pagar un completo; no es una entrega.
+      const v = cfg.vista, escala = +v.escala, fpsV = +v.fps, nV = Math.round(DUR * fpsV);
+      const w2 = Math.round(W * escala / 2) * 2, h2 = Math.round(H * escala / 2) * 2;
+      let nvenc = tieneNvenc();
+      const x264 = ['-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(v.calidad - 4), '-pix_fmt', 'yuv420p'];
+      const codec = nvenc ? ['-an', '-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', String(v.calidad), '-pix_fmt', 'yuv420p'] : x264;
+      const out = path.join(root, 'review', 'vista'), filtro = `scale=${w2}:${h2}:flags=area`;
+      podarParciales(out);
+      let tramos;
+      try { tramos = await renderParalelo(0, nV, fpsV, out, codec, escala, filtro); }
+      catch (e) {
+        // tieneNvenc() prueba una sola sesión; con `workers` sesiones a la vez (o el codificador ocupado por OBS u otra
+        // sesión) alguna puede no abrirse. Se repite la vista entera: tramos NVENC y x264 no se concatenan sin recomprimir.
+        if (!nvenc || !/FFmpeg falló/.test(e.message)) throw e;
+        console.warn(`AVISO: NVENC falló en la vista (${e.message}); la repito entera con libx264.`);
+        nvenc = false; tramos = await renderParalelo(0, nV, fpsV, out, x264, escala, filtro);
       }
+      const audio = path.join(root, 'audio', 'final.wav'), hayAudio = fs.existsSync(audio);
+      const salida = path.join(out, 'vista.mp4'), parcial = path.join(out, `vista.${process.pid}.part.mp4`);
+      try { unir(tramos.lista, hayAudio ? audio : null, nV, fpsV, '160k', parcial); reemplazar(parcial, salida); }
+      catch (e) { if (!/no pude reemplazar/.test(e.message)) borrar(parcial); throw e; }
+      finally { borrar(tramos.carpeta); }
+      const seg = (Date.now() - INICIO) / 1000;
+      console.log(`OK vista: ${salida} · ${w2}×${h2} · ${fpsV} fps · ${nV} fotogramas · ${nvenc ? 'NVENC' : 'libx264'} · ${seg.toFixed(0)} s (${(seg / DUR).toFixed(1)} s por segundo de video)`);
+      registrar({ modo: 'vista', segundos: +seg.toFixed(1), fotogramas: nV, escala, fps: fpsV, codificador: nvenc ? 'nvenc' : 'libx264' });
     } else if (arg('determinismo')) {
       // Un fotograma debe depender solo de t. Se comprueba con el hash de cada captura:
       //  1) el mismo t dos veces seguidas en una página (detecta estado que se arrastra entre fotogramas);
@@ -280,19 +459,47 @@ try {
     } else {
       const modo = arg('borrador') ? 'borrador' : 'final', enc = cfg.codificacion[modo];
       // segmentos de 5 s: si se interrumpe, al relanzar solo rehace los que faltan (cada modo tiene los suyos)
-      const n = FPS * DUR, SEG = FPS * 5;
+      const n = Math.round(FPS * DUR), SEG = FPS * 5, nSeg = Math.ceil(n / SEG);
+      // Huella: solo lo que cambia la imagen. motion.config.json NO se hashea como archivo: entra aquí sin las claves de
+      // las herramientas (cambiar workers, ritmo, curva, revisión, vista, qc, guion, verificación, blender, skill o salida
+      // no rehace nada; con salida.carpeta, la carpeta anterior entra en la huella si no se llama «exportaciones»), pero
+      // con cualquier otra clave de nivel superior, la lea la página o no. `dependencias` no entra como valor, pero
+      // reparte los archivos entre la huella común y la de cada plano: editarla suele rehacer todo una vez. video y
+      // codificación van ya resueltos (los de este modo) y la GPU efectiva (--gpu/--swiftshader) cuenta: no se mezclan
+      // segmentos de SwiftShader y de NVIDIA.
+      const crudo = leerConfigCruda(), deps = crudo.dependencias;
+      const CFG_FUERA = new Set(['workers', 'ritmo', 'curva', 'revision', 'vista', 'dependencias', 'qc', 'guion', 'verificacion',
+        'blender', 'skill', 'salida', 'video', 'gpu', 'codificacion']);
+      const propias = Object.fromEntries(Object.entries(crudo).filter(([k]) => !CFG_FUERA.has(k)));
+      const extra = { cfg: { ...propias, video: cfg.video, codificacion: enc }, gpu: { modo: modoGpu, angle: cfg.gpu.angle },
+        pagina: arg('pagina'), modo, color: COLOR_SDR };
+      const excluir = ['motion.config.json'];
+      // Caché por plano: necesita motion.config.json → dependencias y window.__info.planos en la página.
+      let planos = null;
+      if (deps) {
+        const p = await abrirPagina(); planos = await p.evaluate(() => window.__info?.planos || null); await p.close();
+        if (!planos) console.warn('AVISO: hay «dependencias» pero la página no publica window.__info.planos: caché de todo el proyecto.');
+        else if (!(Array.isArray(planos) && planos.every(x => Array.isArray(x) && x.length >= 3))) {
+          console.warn('AVISO: window.__info.planos no tiene la forma [[id, inicio, fin, salidaDur?], ...]: caché de todo el proyecto.');
+          planos = null;
+        }
+      }
+      const huellas = planos ? huellasPorPlano(root, deps, { salida: cfg.salida.carpeta, extra, excluir, publicados: planos.map(x => x[0]) })
+                             : { comun: huellaProyecto(root, { salida: cfg.salida.carpeta, extra, excluir }), porPlano: {} };
+      if (huellas.ausentes?.length) console.warn(`AVISO: dependencias de ${huellas.ausentes.join(', ')} no coincide con ningún plano`
+        + ` publicado (${planos.map(x => x[0]).join(', ')}; los ids distinguen mayúsculas). Sus archivos cuentan como comunes: editarlos rehace todo.`);
       // Otro espacio de caché: los segmentos antiguos no acreditan esta conversión de color.
-      const firma = huellaProyecto(root, { salida: cfg.salida.carpeta,
-        extra: { cfg, pagina: arg('pagina'), modo, color: COLOR_SDR } });
-      const tmp = path.join(root, 'review', 'segments-' + modo + '-bt709-tv-' + firma); fs.mkdirSync(tmp, { recursive: true });
-      const nSeg = Math.ceil(n / SEG), segPath = k => path.join(tmp, `s${String(k).padStart(3, '0')}.mp4`);
+      const tmp = path.join(root, 'review', 'segcache-' + modo + '-bt709-tv'); fs.mkdirSync(tmp, { recursive: true });
+      const claves = Array.from({ length: nSeg }, (_, k) => claveSegmento(huellas, planos, k * SEG, Math.min(n, (k + 1) * SEG), FPS));
+      const segPath = k => path.join(tmp, `s${String(k).padStart(3, '0')}-${claves[k].clave}.mp4`);
       const okSeg = k => {
         if (!fs.existsSync(segPath(k))) return false;
         const r = spawnSync('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', segPath(k)], { encoding: 'utf8' });
         return +r.stdout.trim() === Math.min(SEG, n - k * SEG);
       };
       const todo = []; for (let k = 0; k < nSeg; k++) if (!okSeg(k)) todo.push(k);
-      console.log(`${modo}: crf ${enc.crf} ${enc.preset} · segmentos ${nSeg - todo.length}/${nSeg} listos, faltan ${todo.length}`);
+      console.log(`${modo}: crf ${enc.crf} ${enc.preset} · segmentos ${nSeg - todo.length}/${nSeg} reutilizados, faltan ${todo.length}`
+        + (planos ? ` · caché por plano (${[...new Set(todo.flatMap(k => claves[k].planos))].join(', ') || 'nada cambió'})` : ''));
       const t0 = Date.now(); let hechos = 0, next = 0;
       await Promise.all(Array.from({ length: Math.min(trabajadores(), todo.length) }, async () => {
         const page = await abrirPagina();
@@ -338,15 +545,28 @@ try {
         else if (Math.abs(l + 14) > 1) console.warn(`AVISO: audio/final.wav mide ${l.toFixed(1)} LUFS y la regla es -14.`);
         else console.log(`Sonoridad: ${l.toFixed(1)} LUFS`);
       } else console.warn('AVISO: no hay audio/final.wav; el video saldrá sin sonido.');
-      const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'list.txt'),
-        ...(hayAudio ? ['-i', audio, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '320k', '-shortest'] : ['-c:v', 'copy']),
-        '-movflags', '+faststart', salida], { stdio: 'inherit' });
-      if (r.status !== 0) throw new Error('falló el ensamblado final (mux)');
-      console.log('OK', salida, ((Date.now() - t0) / 1000).toFixed(0) + ' s');
+      const parcial = `${salida}.${process.pid}.part.mp4`;
+      try { unir(path.join(tmp, 'list.txt'), hayAudio ? audio : null, n, FPS, '320k', parcial); reemplazar(parcial, salida); }
+      catch (e) { if (!/no pude reemplazar/.test(e.message)) borrar(parcial); throw new Error(`falló el ensamblado final (mux): ${e.message}`); }
+      // Poda tras un mux correcto: de cada segmento queda la versión actual (aunque sea la más antigua, si se reutilizó) y,
+      // como mucho, la anterior más reciente. Fuera también los .part huérfanos (> 1 h) y los índices que ya no existen.
+      const actuales = new Set(Array.from({ length: nSeg }, (_, k) => path.basename(segPath(k)))), otras = {};
+      for (const f of fs.readdirSync(tmp)) {
+        const m = /^s(\d+)-.+\.mp4$/.exec(f); if (!m || actuales.has(f)) continue;
+        const ruta = path.join(tmp, f), mt = fs.statSync(ruta).mtimeMs;
+        if (f.endsWith('.part.mp4')) { if (Date.now() - mt > 3600e3) borrar(ruta); }
+        else if (+m[1] >= nSeg) borrar(ruta);
+        else (otras[m[1]] ??= []).push({ ruta, mt });
+      }
+      for (const v of Object.values(otras)) v.sort((a, b) => b.mt - a.mt).slice(1).forEach(x => borrar(x.ruta));
+      const seg = (Date.now() - INICIO) / 1000;
+      console.log('OK', salida, seg.toFixed(0) + ' s', `(${hechos} fotogramas nuevos, ${(nSeg - todo.length)} segmentos reutilizados)`);
+      registrar({ modo, segundos: +seg.toFixed(1), fotogramas_nuevos: hechos, segmentos: nSeg, reutilizados: nSeg - todo.length,
+        planos_rehechos: [...new Set(todo.flatMap(k => claves[k].planos))] });
     }
   }
 } catch (e) {
   console.error(e.message || e); process.exitCode = 1;
 } finally {
-  await Promise.all(browsers.map(b => b.close())); server.close();
+  await Promise.all(browsers.map(b => b.close().catch(() => {}))); server.close();
 }

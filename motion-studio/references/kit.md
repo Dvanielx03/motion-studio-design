@@ -12,6 +12,8 @@ Consúltalo si necesitas un ejemplo de estructura: planos como funciones, montaj
 
 Carga, en este orden: `lib.js`, `kit/camara.js` y `kit/transiciones.js`, y los módulos de técnicas que use la pieza: `kit/profundidad.js`, `kit/luz.js`, `kit/particulas.js`, `kit/escritura.js` y `kit/textos.js`. La plantilla `index.html` ya los incluye todos; quita los que no uses.
 
+Para titulares de **Motion Graphics**, carga además `kit/grafica.js` cuando lo necesites: `crearTitularGrafico` mide una línea con la fuente cargada, ajusta tamaño y separa entrada, lectura estable y salida. Rechaza intervalos o medidas inválidos; no evalúa contraste, oclusiones ni calidad artística. No se carga por defecto en otros estilos. Uso y revisión: [motion-graphics.md](motion-graphics.md).
+
 `kit/tecnicas.html` muestra esas técnicas funcionando, unos 12,5 s en 16:9:
 - diálogo sobre el hombro con cambio de foco y bokeh;
 - párpados;
@@ -139,6 +141,8 @@ tr.montaje(ctx, t, [ { fin: 2.6, plano: plano1, salida: { tipo: 'whip', dur: 0.3
 | `forma` (match cut) | Pasar de una forma a otra parecida: `op.forma(ctx, k)` traza el contorno |
 | `parpados` (1,2–2 s) | Punto de vista del personaje: cierra sobre A, negro, abre sobre B desenfocado que se enfoca (despertar, «al día siguiente»). `parpadeos: 2` hace un primer intento a medias |
 
+**Duración: una sola regla.** Los rangos de la tabla son orientativos; la duración real es la de `dur`. Sin `dur`, una transición dura 0,4 s (`DUR_TRANSICION`) tanto en `tr.dibujar()` como en `tr.montaje()`; un `corte`, o una salida sin `tipo`, dura 0. `tr.duracion(op)` devuelve esa duración efectiva: úsala cuando otra pieza necesite saber cuánto dura una transición, por ejemplo para publicar `salidaDur` en `window.__info.planos` (caché por plano, [25d.md](25d.md)). La salida de un plano empieza en su `fin` y, mientras dura, el plano se sigue dibujando. Un `tipo` mal escrito (`'wipe'`, `'Iris'`) lanza `transición desconocida: <tipo>` al llegar a su ventana; antes hacía un corte en silencio.
+
 Un buen enlace conserva algo entre los planos: posición, forma, dirección del movimiento o color. El corte seco es la norma; reserva las transiciones con efecto para cambios de tiempo, de lugar o de punto de vista.
 
 **Montaje que se acelera.** `aceleracion(inicio, n, d0, d1)` devuelve `n` intervalos `{i, inicio, fin}` cuya duración pasa de `d0` a `d1`. Sirve para comprimir una rutina que se repite: la misma función de plano con un dato distinto en cada repetición (el día, la excusa, los km). Que cada repetición cambie algo; si son idénticas, solo es relleno.
@@ -208,3 +212,5 @@ const p = esc.revelar(ctx, prog(t, 5.8, 6.6), { x, y, ancho, alto, letras: 4 }, 
 - Partículas, marcas y bokeh sembrado dependen solo de su semilla, su índice y t.
 
 Si añades piezas propias, sigue las mismas reglas: crea lienzos y cachés al cargar, nunca dentro de `render(t)`, y comprueba con `node render.mjs --determinismo` incluyendo instantes en mitad de cada transición.
+
+`kit/escena3d.js` (módulo ES; viene en todos los proyectos, pero solo lo importa el `composicion.js` de la plantilla `--25d`) es el motor 2.5D con Three.js: escenarios por bandas con contorno, billboards, manadas, cámara 3D y exportación a Blender. Uso y lecciones en [25d.md](25d.md).

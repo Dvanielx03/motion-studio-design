@@ -33,6 +33,7 @@ Indica qué necesita cada parte de la skill, cómo se instala, cómo se comprueb
 | Node.js | 18+ para el render; **22.20+** para la CLI `skills` (instalación con `npx skills`) | `render.mjs`, `auditar.mjs` | `preparar.py --sistema` (winget, brew o apt) | `node --version` |
 | FFmpeg y FFprobe | Compilación con **libx264** y el filtro **ebur128** (probado con 9.0.1 full build) | Codificación, sonoridad, `ritmo.py`, `verificar.py` | `preparar.py --sistema`: `Gyan.FFmpeg`, `brew install ffmpeg` o `apt install ffmpeg` | `ffmpeg -hide_banner -encoders` (busca libx264) y `-filters` (busca ebur128) |
 | Playwright y Chromium | Probado con 1.64 | `render.mjs` | `preparar.py`, en `~/.motion-studio` (`MOTION_STUDIO_HOME`) | `preparar.py --comprobar` |
+| Three.js | **0.170.0** (versión fija; otra versión instalada cuenta como falta) | Capa 2.5D (`nuevo.py --25d`, `kit/escena3d.js`), que lo importa por import map desde `/node_modules/three` | `preparar.py`, en `~/.motion-studio`, con `npm install --save-exact three@0.170.0` | `preparar.py --comprobar` (línea «Three.js (2.5D)»; código 1 si falta) |
 | Fuentes @fontsource | 12 familias | Tipografía | `preparar.py` | `preparar.py --comprobar` |
 
 **Comprobación general:**
@@ -69,7 +70,7 @@ python scripts/preparar.py --comprobar   # código 0 si todo está listo; escrib
 |---|---|
 | **Sistemas** | Los tres: es HTML, Canvas, SVG o WebGL dentro de Chromium |
 | **Hardware** | Canvas 2D funciona incluso por CPU. Three.js o WebGL intenso necesitan una GPU real, con 2 GB de VRAM como mínimo y 4 GB o más recomendados. |
-| **Dependencias** | Chromium de Playwright; Three.js solo si el brief lo usa (`npm i three` en el proyecto) |
+| **Dependencias** | Chromium de Playwright; Three.js 0.170.0 si el brief lo usa: lo instala y comprueba `preparar.py` en las herramientas compartidas, y `render.mjs` lo sirve desde allí. `npm i three@0.170.0` en el proyecto queda como alternativa (el proyecto tiene prioridad). |
 | **Verificación** | `node auditar.mjs` · `node render.mjs --frames=1,3` · `--determinismo` |
 | **Limitaciones** | Nada de relojes, `requestAnimationFrame`, `setTimeout`, transiciones CSS ni `Math.random`. El texto siempre con `crearTexto`. |
 | **Alternativas** | Sin GPU: diseños 2D y `--gpu=cpu`. |
@@ -81,11 +82,11 @@ python scripts/preparar.py --comprobar   # código 0 si todo está listo; escrib
 | **Sistemas** | Windows con ANGLE `d3d11` (validado). macOS: `metal`; Linux: `vulkan` o `gl` (sin validar; ver `references/gpu.md`). |
 | **Hardware** | Ver el resumen. Los `workers` (6 por defecto) multiplican la RAM y la VRAM. |
 | **Dependencias** | Node 18+, Playwright y Chromium, FFmpeg con libx264 |
-| **Configuración** | `motion.config.json`: `video`, `gpu` (`modo`, `angle`, `coincidir`), `workers`, `codificacion` |
-| **Comandos** | `--frames` · `--prueba=a,b` · `--sheet` · `--determinismo` · `--ritmo` · `--borrador` · `--final` · `--pagina=` · `--workers=N` · `--gpu=modo` |
-| **Verificación** | Línea `WebGL:` al arrancar; `python verificar.py` al terminar |
-| **Limitaciones** | Captura fotograma a fotograma (no en tiempo real). Sin canal alfa: no puede generar capas transparentes para superponer a otro video. |
-| **Alternativas** | Poca memoria: `--workers=2`. Sin GPU: `--gpu=cpu` (lento). Si el render se interrumpe, al relanzarlo solo rehace los segmentos que faltan. |
+| **Configuración** | `motion.config.json`: `video`, `gpu` (`modo`, `angle`, `coincidir`), `workers`, `codificacion`, `vista` (`escala`, `fps`, `calidad`) y, para la caché por plano, `dependencias`. Antes de abrir el navegador exige `video.fps` entero positivo (29,97 y 23,976 no se admiten), `duracion` > 0 y `ancho`/`alto` enteros pares (yuv420p); los números escritos como texto (`"30"`) valen. Si algo no cumple, sale con código 1 y «motion.config.json no es válido: …». |
+| **Comandos** | `--frames` · `--vista` · `--prueba=a,b` · `--sheet` · `--determinismo` · `--ritmo` · `--borrador` · `--final` · `--pagina=` · `--workers=N` · `--gpu=modo` |
+| **Verificación** | Línea `WebGL:` al arrancar; `python verificar.py` al terminar. `--prueba`, `--vista`, `--borrador` y `--final` cuentan los fotogramas del MP4 con ffprobe tras unir la imagen y la mezcla, y fallan si no son los esperados (la vista de `--ritmo` no se cuenta). |
+| **Limitaciones** | Captura fotograma a fotograma (no en tiempo real). Sin canal alfa: no puede generar capas transparentes para superponer a otro video. La vista con NVENC abre una sesión por navegador; si alguna falla (OBS u otra sesión ocupando el codificador), se repite entera con libx264. |
+| **Alternativas** | Poca memoria: `--workers=2`. Sin GPU: `--gpu=cpu` (lento). Si el render se interrumpe, al relanzarlo solo rehace los segmentos que faltan. Si la salida está abierta en un reproductor y no se puede reemplazar, el resultado se conserva junto a ella como `<salida sin .mp4>.conservado-<pid>.mp4` (p. ej. `review/vista/vista.conservado-<pid>.mp4`). No se poda: bórralo o renómbralo cuando cierres el reproductor. Si tampoco se puede renombrar, queda en su `.part.mp4`. El mensaje de error da la ruta exacta. Los `.part.mp4` de ejecuciones interrumpidas en `review/pruebas` y `review/vista` se borran pasada 1 h. |
 
 ### 5. Audio (`audio/musica.py`)
 
@@ -151,5 +152,8 @@ Si el usuario pide algo de esta tabla, díselo antes de empezar y ofrece lo que 
 - Referencias y plan de planos: Python, Pillow, FFmpeg/FFprobe; no necesitan Blender ni ASR.
 - Transcripción de voz: `faster-whisper` y modelo local; probado large-v3-turbo en CPU/int8. `produccion.py --transcribir` usa FFmpeg para decodificar y evita la incompatibilidad observada de PyAV. No acredita alineación exacta.
 - Recursos 3D: Blender **5.2.3 LTS** con EEVEE/OpenGL, probado en Windows/RTX 3050. `recursos25d.py` exige la GPU real, genera PNG y registra huellas; no instala Blender ni cambia preferencias del sistema. Otros sistemas/backends siguen sin probar.
+- Escenarios Three.js (`nuevo.py --25d`, `kit/escena3d.js`): Three.js **0.170.0**, que `preparar.py` instala y comprueba en las herramientas compartidas (`npm i three@0.170.0` en el proyecto es la alternativa); GPU con WebGL 2. Si three u otro import da 404, o hay un error de sintaxis antes de `window.ready`, el `index.html` de la plantilla fija `window.loadError` en el acto («falta Three.js (…) da 404» o «no cargó <archivo> o uno de sus imports»): `render.mjs`, `qc_escena.mjs` y `exportar_glb.mjs` se detienen con el motivo en vez de esperar 120 s.
+- Blender desde `exportar_glb.mjs --blender` y `scripts/abrir_en_blender.py` (probado 5.2.3 LTS). El script de la skill se busca en este orden: `MOTION_STUDIO_SKILL`, `"skill"` en `motion.config.json` (relativa a la carpeta del proyecto), `~/.agents/skills/motion-studio` y `~/.claude/skills/motion-studio`; si no está, sale con código 1 y lista las rutas. El ejecutable: `BLENDER`, `"blender"` en `motion.config.json` o la ruta estándar de Windows. Sin `--forzar` no pisa un `.blend` existente (avisa y sale con 0). `preparar.py --comprobar` informa de Blender como opcional y `recursos25d.py` lo encuentra solo (variable `BLENDER`, PATH o `Program Files\Blender Foundation`).
+- Control de calidad 2.5D: `pops.py` (numpy, FFmpeg; lee el video en flujo, sin cargarlo entero en memoria), `qc_escena.mjs` (Playwright, contrato `window.__qc`), `revisar_guion.py` (Python estándar; necesita `audio/guion.json` y los tiempos de `audio/tiempos_voz.json` o de `audio/voz.palabras.json`) y `scripts/bitacora.py`. `render.mjs --vista` usa NVENC si FFmpeg lo trae y la GPU NVIDIA responde; si no, o si falla, libx264 `veryfast`.
 - Reproducción: `kit/secuencia.js` usa `fetch` e `ImageBitmap` de Chromium, con cierre de bitmaps expulsados. El render espera `seek(t)` asíncrono.
 - Uso y límites: [25d.md](25d.md). No añade exportación de video con alfa, rig universal, generador de voces ni publicación.

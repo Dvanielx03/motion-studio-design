@@ -1,0 +1,578 @@
+{
+ "id": "dc-02-hotel-levantado",
+ "titulo": "The Hotel That Rose With the Guests Inside",
+ "voz": {
+  "id": "TtRFBnwQdH1k01vR0hMz",
+  "tempo": 1.2,
+  "silencio_interno": 0.12,
+  "version": "v3"
+ },
+ "cola": 0.6,
+ "lineas": [
+  {
+   "id": "L01",
+   "texto": "[excited, storytelling hook] In 1861, Chicago lifted a giant brick hotel SIX FEET into the air... [incredulous, building] with the guests STILL INSIDE.",
+   "pausa": 0.2,
+   "tempo": 1.35
+  },
+  {
+   "id": "L02",
+   "texto": "[conspiratorial, fast] You see, Chicago was built on a swamp. [disgusted, comedic] Wagons sank. Horses got stuck. [chuckling] And legend says someone put up a sign: [deadpan] \"No bottom here.\"",
+   "pausa": 0.15
+  },
+  {
+   "id": "L03",
+   "texto": "[mock-serious, rapid] So the city decided to bury its own streets: [building] new sewers on top... [astonished] then up to FOURTEEN feet of dirt!",
+   "pausa": 0.15
+  },
+  {
+   "id": "L04",
+   "texto": "[ironic, slowing down] Which left the fanciest hotel in town... [deadpan, comedic] sitting in a hole.",
+   "pausa": 0.3,
+   "tempo": 1.22
+  },
+  {
+   "id": "L05",
+   "texto": "[thinking aloud, quick] Tear it down? [scoffs] Too expensive. Lift it? [laughing mockingly] Everybody laughed. [mocking voice] \"It's solid BRICK!\"",
+   "pausa": 0.15,
+   "tempo": 1.26
+  },
+  {
+   "id": "L06",
+   "texto": "[mysterious, confident] Then a young building mover named George Pullman said, [smug, calm, cool] \"I'll lift it. Your guests won't feel a thing.\"",
+   "pausa": 0.25
+  },
+  {
+   "id": "L07",
+   "texto": "[intense, big reveal] He filled trenches under the hotel with FIVE HUNDRED men... [awed] and a THOUSAND jackscrews.",
+   "pausa": 0.15
+  },
+  {
+   "id": "L08",
+   "texto": "[tense whisper] On a signal... [sharp, commanding] every man gave his screw a tiny turn, all at once, [suspenseful, slow] and the whole hotel rose... [whispers] a hair.",
+   "pausa": 0.15
+  },
+  {
+   "id": "L09",
+   "texto": "[rhythmic, punchy, building energy] Turn. Rise. Wedge in timber. [excited, faster] Again and again!",
+   "pausa": 0.2,
+   "tempo": 1.24
+  },
+  {
+   "id": "L10",
+   "texto": "[light, amused] Upstairs, guests ate, slept and checked out like nothing was happening. [laughing] Even a U.S. Senator.",
+   "pausa": 0.15
+  },
+  {
+   "id": "L11",
+   "texto": "[triumphant] Six feet later, the hotel sat LEVEL with the new street, [proud, warm] and nobody inside felt a thing.",
+   "pausa": 0.35
+  },
+  {
+   "id": "L12",
+   "texto": "[sly pause] Well... almost. [amused, playful] Every morning, the front steps were a little bit taller.",
+   "pausa": 0.0,
+   "tempo": 1.2
+  }
+ ],
+ "musica": {
+  "global": [
+   "original comedic orchestral underscore for an animated history YouTube Short set in 1860s Chicago",
+   "playful, witty storytelling with Americana flavor",
+   "upright honky-tonk piano, pizzicato strings, clarinet, tuba, brushed snare, timpani, celesta",
+   "leaves clear space for an energetic spoken voice-over",
+   "instrumental"
+  ],
+  "negativo": [
+   "vocals",
+   "singing",
+   "lyrics",
+   "choir",
+   "EDM",
+   "trap",
+   "dubstep",
+   "electric guitar",
+   "lo-fi",
+   "synth"
+  ],
+  "secciones": [
+   {
+    "nombre": "M1 mischievous",
+    "hasta": "L04-0.1",
+    "estilos": [
+     "mischievous 1860s Americana",
+     "ragtime-style upright piano with pizzicato strings",
+     "playful and sneaky",
+     "opens with a punchy stab on the first beat",
+     "light brushed snare"
+    ],
+    "evitar": [
+     "epic",
+     "sad"
+    ]
+   },
+   {
+    "nombre": "M2 comedic tension",
+    "hasta": "L07-0.1",
+    "estilos": [
+     "comedic tension",
+     "staccato tuba and bassoon",
+     "plucked strings with comic pauses",
+     "a confident swagger in the last bars"
+    ],
+    "evitar": [
+     "epic"
+    ]
+   },
+   {
+    "nombre": "M3 industrial build",
+    "hasta": "L10-0.1",
+    "estilos": [
+     "industrial build-up",
+     "steady anvil and timpani pulse",
+     "low brass",
+     "rising tension with strong hits on each beat",
+     "ends on a big triumphant hit"
+    ],
+    "evitar": [
+     "calm",
+     "sad"
+    ]
+   },
+   {
+    "nombre": "M4 hotel waltz",
+    "hasta": "L12-0.1",
+    "estilos": [
+     "elegant hotel waltz with a wink",
+     "music-box celesta and soft strings",
+     "grows into a triumphant swell"
+    ],
+    "evitar": [
+     "percussion heavy"
+    ]
+   },
+   {
+    "nombre": "M5 button",
+    "hasta": "FIN",
+    "estilos": [
+     "comic button ending",
+     "two soft piano notes then a muted trumpet wah",
+     "wry"
+    ],
+    "evitar": [
+     "epic"
+    ]
+   }
+  ]
+ },
+ "sfx": {
+  "amb_obra": [
+   "busy 19th-century outdoor construction site, distant crowd murmur, wooden hammering far away, light wind, no music",
+   8.0
+  ],
+  "viga_cruje": [
+   "heavy wooden beams creaking under great strain with a deep groan",
+   2.0
+  ],
+  "edificio_sube": [
+   "a massive building shifting upward, low rumble with small dust and debris falling",
+   2.0
+  ],
+  "taza": [
+   "delicate porcelain teacup clink on a saucer, close",
+   0.8
+  ],
+  "rebobinado": [
+   "fast whoosh rewinding backwards in time, airy and magical",
+   1.0
+  ],
+  "amb_barro": [
+   "muddy 1850s street ambience, dripping water, horse hooves squelching in deep mud, no music",
+   8.0
+  ],
+  "barro_hunde": [
+   "thick mud squelch as a wooden wagon wheel sinks with a creak",
+   1.5
+  ],
+  "caballo": [
+   "annoyed horse whinny with hooves struggling in deep mud",
+   1.8
+  ],
+  "burbuja": [
+   "big comedic mud bubble pop, gloopy",
+   0.8
+  ],
+  "tubo_cae": [
+   "huge clay pipe thudding heavily into mud",
+   1.2
+  ],
+  "tierra_cae": [
+   "continuous dirt and gravel pouring from shovels and wagons",
+   5.0
+  ],
+  "sube_whoosh": [
+   "rising whoosh ending in a soft dirt thump",
+   1.5
+  ],
+  "escalera": [
+   "wooden ladder creaking with careful footsteps",
+   1.5
+  ],
+  "trombon": [
+   "sad comedic trombone slide down, short",
+   1.2
+  ],
+  "risas": [
+   "group of townspeople bursting into mocking laughter, 1860s crowd",
+   2.5
+  ],
+  "nudillos": [
+   "knuckles knocking three times on a solid brick wall",
+   1.0
+  ],
+  "pasos": [
+   "confident footsteps on a wooden boardwalk",
+   2.5
+  ],
+  "silencio_tos": [
+   "crowd laughter abruptly stops, then one awkward cough",
+   1.5
+  ],
+  "ding": [
+   "tiny comedic sparkle ding",
+   0.6
+  ],
+  "amb_subsuelo": [
+   "cavernous underground space under a building, many men murmuring, lantern flames hissing, distant dripping, no music",
+   8.0
+  ],
+  "herramientas": [
+   "metal tools and iron bars clinking",
+   3.0
+  ],
+  "boom": [
+   "deep reverberant cinematic boom",
+   1.5
+  ],
+  "silbato": [
+   "sharp brass whistle blast echoing in an underground space",
+   1.2
+  ],
+  "trinquete": [
+   "heavy iron screw ratchet click, close",
+   0.6
+  ],
+  "trinquetes": [
+   "hundreds of iron ratchets clicking in perfect unison",
+   1.2
+  ],
+  "gemido": [
+   "deep groan of a massive brick structure moving very slightly",
+   1.8
+  ],
+  "tic": [
+   "tiny high-pitched wood tick",
+   0.4
+  ],
+  "clank": [
+   "iron ratchet clank",
+   0.6
+  ],
+  "cruje": [
+   "timber creak moving upward",
+   0.8
+  ],
+  "mazo": [
+   "wooden mallet hammering a wooden wedge, two hits",
+   0.8
+  ],
+  "amb_comedor": [
+   "elegant 1860s hotel dining room, cutlery, soft chatter, string quartet playing in the next room",
+   8.0
+  ],
+  "ronquido": [
+   "loud comedic snore",
+   2.0
+  ],
+  "silbido_ronquido": [
+   "comedic snore with a whistle on the exhale",
+   1.5
+  ],
+  "clunk": [
+   "satisfying soft clunk of something heavy settling into place",
+   0.8
+  ],
+  "vitores": [
+   "crowd of workers cheering and whooping",
+   2.5
+  ],
+  "nota": [
+   "single curious piano note",
+   1.0
+  ],
+  "boing": [
+   "comedic boing as a step pops up",
+   0.8
+  ],
+  "sorbo": [
+   "long slurp of hot tea",
+   1.2
+  ],
+  "whoosh": [
+   "soft cinematic whoosh transition, short and airy",
+   0.6
+  ]
+ },
+ "cues": [
+  {
+   "sfx": "amb_obra",
+   "t": 0,
+   "g": -14,
+   "amb": true,
+   "fin": "L02+0.2"
+  },
+  {
+   "sfx": "viga_cruje",
+   "t": "@lifted",
+   "g": -7,
+   "nota": "«lifted»: crujen las vigas"
+  },
+  {
+   "sfx": "edificio_sube",
+   "t": "@air",
+   "g": -6,
+   "nota": "«air»: el hotel da un salto"
+  },
+  {
+   "sfx": "taza",
+   "t": "@inside",
+   "g": -4,
+   "nota": "«inside»: clin de la taza"
+  },
+  {
+   "sfx": "rebobinado",
+   "t": "L01$-0.05",
+   "g": -9,
+   "nota": "rebobinado 1861 → 1858"
+  },
+  {
+   "sfx": "amb_barro",
+   "t": "L02",
+   "g": -13,
+   "amb": true,
+   "fin": "@bury"
+  },
+  {
+   "sfx": "barro_hunde",
+   "t": "@sank",
+   "g": -6
+  },
+  {
+   "sfx": "caballo",
+   "t": "@stuck",
+   "g": -8,
+   "pan": 0.25
+  },
+  {
+   "sfx": "burbuja",
+   "t": "@here",
+   "g": -5,
+   "nota": "«No bottom here»"
+  },
+  {
+   "sfx": "tubo_cae",
+   "t": "@bury",
+   "g": -5
+  },
+  {
+   "sfx": "tierra_cae",
+   "t": "@streets",
+   "g": -11,
+   "amb": true,
+   "fin": "@dirt+0.4"
+  },
+  {
+   "sfx": "sube_whoosh",
+   "t": "@14-0.3",
+   "g": -8,
+   "nota": "«fourteen feet»: la calle sube"
+  },
+  {
+   "sfx": "escalera",
+   "t": "@fanciest",
+   "g": -10
+  },
+  {
+   "sfx": "trombon",
+   "t": "@hole",
+   "g": -9,
+   "nota": "«sitting in a hole»"
+  },
+  {
+   "sfx": "amb_obra",
+   "t": "@hole+0.6",
+   "g": -16,
+   "amb": true,
+   "fin": "L07-0.2"
+  },
+  {
+   "sfx": "risas",
+   "t": "@laughed",
+   "g": -9,
+   "pan": -0.15
+  },
+  {
+   "sfx": "risas",
+   "t": "@brick@L05-0.1",
+   "g": -12,
+   "pan": 0.25,
+   "nota": "«solid BRICK!»: segunda carcajada"
+  },
+  {
+   "sfx": "pasos",
+   "t": "L06",
+   "g": -14,
+   "pan": -0.3,
+   "fin": "@pullman+0.5"
+  },
+  {
+   "sfx": "silencio_tos",
+   "t": "@pullman+0.1",
+   "g": -12
+  },
+  {
+   "sfx": "ding",
+   "t": "@thing@L06",
+   "g": -8
+  },
+  {
+   "sfx": "whoosh",
+   "t": "L07-0.25",
+   "g": -12,
+   "nota": "zambullida a la zanja"
+  },
+  {
+   "sfx": "amb_subsuelo",
+   "t": "L07-0.1",
+   "g": -12,
+   "amb": true,
+   "fin": "L10"
+  },
+  {
+   "sfx": "herramientas",
+   "t": "@trenches",
+   "g": -15
+  },
+  {
+   "sfx": "boom",
+   "t": "@thousand",
+   "g": -7
+  },
+  {
+   "sfx": "silbato",
+   "t": "@signal",
+   "g": -6
+  },
+  {
+   "sfx": "trinquete",
+   "t": "@turn@L08",
+   "g": -5
+  },
+  {
+   "sfx": "trinquetes",
+   "t": "@once",
+   "g": -6
+  },
+  {
+   "sfx": "gemido",
+   "t": "@rose",
+   "g": -7
+  },
+  {
+   "sfx": "tic",
+   "t": "@hair",
+   "g": -3
+  },
+  {
+   "sfx": "clank",
+   "t": "@turn@L09",
+   "g": -5
+  },
+  {
+   "sfx": "cruje",
+   "t": "@rise@L09",
+   "g": -5
+  },
+  {
+   "sfx": "mazo",
+   "t": "@timber",
+   "g": -5
+  },
+  {
+   "sfx": "clank",
+   "t": "@again",
+   "g": -8
+  },
+  {
+   "sfx": "mazo",
+   "t": "@again#2",
+   "g": -9
+  },
+  {
+   "sfx": "amb_comedor",
+   "t": "L10-0.1",
+   "g": -13,
+   "amb": true,
+   "fin": "L11"
+  },
+  {
+   "sfx": "ronquido",
+   "t": "@slept",
+   "g": -9
+  },
+  {
+   "sfx": "silbido_ronquido",
+   "t": "@senator",
+   "g": -8
+  },
+  {
+   "sfx": "amb_obra",
+   "t": "L11",
+   "g": -15,
+   "amb": true,
+   "fin": "FIN"
+  },
+  {
+   "sfx": "clunk",
+   "t": "@level",
+   "g": -5
+  },
+  {
+   "sfx": "vitores",
+   "t": "@thing@L11-0.2",
+   "g": -10
+  },
+  {
+   "sfx": "nota",
+   "t": "@almost",
+   "g": -8
+  },
+  {
+   "sfx": "boing",
+   "t": "@taller",
+   "g": -6
+  },
+  {
+   "sfx": "sorbo",
+   "t": "L12$+0.1",
+   "g": -6
+  }
+ ],
+ "mezcla": {
+  "musica_bajo_voz": -15,
+  "duck_musica": -7,
+  "duck_amb": -8,
+  "silencios": []
+ },
+ "idioma": "en"
+}

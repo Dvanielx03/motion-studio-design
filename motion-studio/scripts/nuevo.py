@@ -2,11 +2,13 @@
 """Crea la carpeta de un video nuevo desde la plantilla de Motion Studio y configura la GPU.
 
     python nuevo.py <carpeta> [--nombre NOMBRE] [--gpu "texto del nombre"] [--duracion S] [--fps N] [--vertical]
-                    [--sin-preparar] [--listar-gpus] [--edicion]
+                    [--sin-preparar] [--listar-gpus] [--edicion] [--25d]
 
 - Copia assets/plantilla/ a <carpeta> (no pisa nada: si <carpeta> ya existe y no esta vacia, se detiene).
 - Con --edicion crea un proyecto de edición de video real (assets/edicion/ + verificar.py y ritmo.py) con
   fuentes/camara, fuentes/pantalla, fuentes/broll y fuentes/audio, y guarda el perfil del equipo (preparar.py --perfil).
+- Con --25d añade la capa 2.5D (assets/plantilla-25d/): escenarios Three.js con kit/escena3d.js, personajes 2D como
+  billboards, manadas instanciadas, cámara 3D y exportar_glb.mjs para abrir los escenarios en Blender (references/25d.md).
 - Detecta las GPU del equipo (Windows) y escribe la elegida en <carpeta>/motion.config.json.
   Si hay varias y no usas --gpu, elige la dedicada (NVIDIA > Radeon RX/Arc) y te lo dice: confirmalo con el usuario.
 - Escribe la duracion, los fps y la orientacion del brief (--vertical = 1080x1920) en motion.config.json.
@@ -23,11 +25,26 @@ from pathlib import Path
 
 PLANTILLA = Path(__file__).resolve().parent.parent / "assets" / "plantilla"
 EDICION = Path(__file__).resolve().parent.parent / "assets" / "edicion"
+CAPA_25D = Path(__file__).resolve().parent.parent / "assets" / "plantilla-25d"
 # herramientas de la plantilla de animación que el modo edición reutiliza tal cual
 COMPARTIDAS = ["verificar.py", "ritmo.py"]
 # (patron del nombre, texto para `gpu.coincidir`, prioridad: menor = mas probable que sea la dedicada)
 MARCAS = [(r"NVIDIA|GeForce|RTX|GTX", "NVIDIA", 0), (r"Radeon RX|Radeon Pro|\bRX \d", "Radeon", 1), (r"Intel.*Arc|\bArc\b", "Arc", 2),
           (r"AMD|Radeon", "AMD|Radeon", 3), (r"Intel", "Intel", 4)]
+
+
+def buscar_blender():
+    """Ruta de blender.exe (o del binario) si está instalado: BLENDER, PATH o la carpeta estándar de Windows/macOS."""
+    import os
+    candidatos = [os.environ.get("BLENDER"), shutil.which("blender")]
+    raiz = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Blender Foundation"
+    if raiz.is_dir():
+        candidatos += [str(p) for p in sorted(raiz.glob("Blender */blender.exe"), reverse=True)]
+    candidatos.append("/Applications/Blender.app/Contents/MacOS/Blender")
+    for c in candidatos:
+        if c and Path(c).is_file():
+            return str(Path(c)).replace("\\", "/")
+    return None
 
 
 def listar_gpus():
@@ -112,6 +129,8 @@ def main():
     ap.add_argument("--sin-preparar", action="store_true", help="no instalar herramientas que falten; solo comprobarlas")
     ap.add_argument("--listar-gpus", action="store_true")
     ap.add_argument("--edicion", action="store_true", help="proyecto del modo edición de video real (references/edicion.md)")
+    ap.add_argument("--25d", dest="d25", action="store_true",
+                    help="animación 2.5D con Three.js: escenarios 3D, billboards y exportación a Blender (references/25d.md)")
     a = ap.parse_args()
 
     gpus = listar_gpus()
@@ -126,6 +145,8 @@ def main():
     if a.edicion:
         return nuevo_edicion(destino, a)
     shutil.copytree(PLANTILLA, destino, dirs_exist_ok=True)
+    if a.d25:
+        shutil.copytree(CAPA_25D, destino, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__"))
 
     nombre_gpu, coincidir, modo = elegir(gpus, a.gpu)
     ruta = destino / "motion.config.json"
@@ -138,6 +159,10 @@ def main():
         cfg["video"]["fps"] = a.fps
     if a.vertical:
         cfg["video"]["ancho"], cfg["video"]["alto"] = 1080, 1920
+    if a.d25:
+        blender = buscar_blender()
+        if blender:
+            cfg["blender"] = blender
     ruta.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print(f"Proyecto creado: {destino}")
@@ -148,6 +173,8 @@ def main():
           + ("" if a.duracion else "  (duracion de ejemplo: ajustala al brief con --duracion o en motion.config.json)"))
     if len(gpus) > 1 and not a.gpu:
         print("AVISO: hay varias GPU; se eligio la dedicada. Confirma con el usuario y cambia motion.config.json si no es la que quiere.")
+    if a.d25:
+        print(f"Capa 2.5D: composicion.js + kit/escena3d.js + exportar_glb.mjs · Blender: {cfg.get('blender') or 'no encontrado (opcional)'}")
     print()
     if not preparar(instalar=not a.sin_preparar):
         print("AVISO: faltan herramientas (ver arriba). El proyecto está creado, pero no se podrá renderizar hasta resolverlo.")

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<title>Motion Studio · plantilla 2.5D</title>
+<style>html, body { margin: 0; background: #000; } canvas { display: block; }</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+<canvas id="c"></canvas>
+<!-- Contrato: window.seek(t) dibuja el fotograma de t; window.ready cuando todo cargó; window.loadError si falla.
+     Sin relojes, setTimeout, requestAnimationFrame, Math.random ni estado entre fotogramas.
+     Modo 2.5D: references/25d.md («Escenarios Three.js»). Para exportar un escenario a Blender: node exportar_glb.mjs <nombre>. -->
+<script>
+  // Fallo de carga ANTES de window.ready (un 404 de three o del kit, un error de sintaxis): window.loadError en el acto,
+  // para que render.mjs, qc_escena.mjs y exportar_glb.mjs se detengan con el motivo en vez de esperar 120 s.
+  // Un <script type=module> recibe `error` si falla cualquier import de su grafo; el try/catch de composicion.js no llega a correr.
+  addEventListener('error', e => {
+    if (window.ready || window.loadError) return;
+    const s = e.target;
+    if (s && s.tagName === 'SCRIPT') {
+      const archivo = (s.src || '').split('/').pop() || 'un script';
+      const three = JSON.parse(document.querySelector('script[type=importmap]').textContent).imports.three;
+      const avisar = falta => { window.loadError ||= falta
+        ? `falta Three.js (${three} da 404): npm i three@0.170.0 en el proyecto, o python scripts/preparar.py de la skill`
+        : `no cargó ${archivo} o uno de sus imports (mira los 404 de la consola)`; };
+      fetch(three, { method: 'HEAD', cache: 'no-store' }).then(r => avisar(!r.ok), () => avisar(false));
+    } else if (e.message) window.loadError = `${e.message} (${e.filename || '?'}:${e.lineno || 0})`;
+  }, true);
+</script>
+<script src="lib.js"></script>
+<script src="kit/camara.js"></script>
+<script src="kit/transiciones.js"></script>
+<script type="module" src="composicion.js"></script>
+</html>

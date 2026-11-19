@@ -9,7 +9,8 @@
 // También avisa de texto dibujado con fillText/strokeText fuera de lib.js (la caché de glifos de Chrome lo vuelve no
 // determinista bajo escala o rotación: usa crearTexto) y de un contexto 2D que no se reinicia con ctx.reset().
 // Se ignoran comentarios y cadenas de texto. No se revisan node_modules, review, exportaciones, audio, assets, *.min.js
-// ni los scripts auxiliares cuyo nombre empieza por _ (diagnósticos que no forman parte del video).
+// ni los diagnósticos «_*.mjs» / «_*.cjs» de la RAÍZ del proyecto (la misma regla que cache.mjs: no forman parte del
+// video). Cualquier otro «_*» (escena/_paleta.js, _comun.js, kit/_x.mjs) puede cargarlo la página y se revisa.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -89,11 +90,14 @@ function revisar(archivo, hallazgos) {
   }
 }
 
+// Diagnóstico de la raíz (no lo carga la página): solo «_*.mjs» y «_*.cjs», como en cache.mjs.
+const esDiagnostico = (nombre, enRaiz) => enRaiz && /^_.*\.(mjs|cjs)$/i.test(nombre);
+
 function recorrer(dir, hallazgos, contador) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) { if (!OMITIR_DIRS.has(e.name)) recorrer(p, hallazgos, contador); }
-    else if (/\.(html|js|mjs|css)$/.test(e.name) && !OMITIR_ARCHIVOS.has(e.name) && !/\.min\./.test(e.name) && !e.name.startsWith('_')) { revisar(p, hallazgos); contador.n++; }
+    else if (/\.(html|js|mjs|css)$/.test(e.name) && !OMITIR_ARCHIVOS.has(e.name) && !/\.min\./.test(e.name) && !esDiagnostico(e.name, dir === raiz)) { revisar(p, hallazgos); contador.n++; }
   }
 }
 
